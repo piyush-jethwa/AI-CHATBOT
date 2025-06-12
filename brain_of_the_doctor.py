@@ -1,3 +1,13 @@
+import os
+import sys
+import base64
+import time
+import hashlib
+import shutil
+import tempfile
+from functools import lru_cache
+from groq import Groq, GroqError
+
 try:
     from dotenv import load_dotenv
     import streamlit as st
@@ -12,16 +22,6 @@ except ImportError:
 except Exception as e:
     print(f"Warning: Could not load .env file: {e}. Environment variables must be set manually.")
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-import os
-import sys
-import base64
-import time
-import hashlib
-import shutil
-import tempfile
-from functools import lru_cache
-from groq import Groq, GroqError
 
 def test_api_key(api_key):
     """Test if the provided API key is valid by making a minimal request"""
