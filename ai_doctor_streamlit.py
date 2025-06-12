@@ -102,17 +102,26 @@ if submit_btn:
         elif image_base64:
             diagnosis = analyze_image_with_query(text_input or "Analyze this skin condition", image_base64, response_language)
             prescription = generate_prescription(diagnosis, response_language)
-        # Audio diagnosis (first sentence only)
+        # Audio diagnosis (full content)
         audio_bytes = None
         if diagnosis:
-            short_diagnosis = diagnosis.split('.')[0] + '.' if '.' in diagnosis else diagnosis
             try:
-                tts = gTTS(text=short_diagnosis, lang=language_code)
+                tts = gTTS(text=diagnosis, lang=language_code)
                 audio_bytes_io = io.BytesIO()
                 tts.write_to_fp(audio_bytes_io)
                 audio_bytes = audio_bytes_io.getvalue()
             except Exception as e:
                 st.warning(f"Audio generation failed: {e}")
+                # Fallback to English if language not supported
+                if language_code != "en":
+                    st.info("Falling back to English audio...")
+                    try:
+                        tts = gTTS(text=diagnosis, lang="en")
+                        audio_bytes_io = io.BytesIO()
+                        tts.write_to_fp(audio_bytes_io)
+                        audio_bytes = audio_bytes_io.getvalue()
+                    except Exception as e:
+                        st.error(f"Audio generation failed in English too: {e}")
         # Output UI
         st.markdown("---")
         st.markdown("## 📋 Diagnosis Results")
