@@ -1,0 +1,13 @@
+Press and Hold to Record,image_filepath,Response Language,Doctor Avatar,Speech to Text,Doctor's Response,Doctor Audio,timestamp
+.gradio\flagged\Press and Hold to Record\6e64d3e92fc02d71f49b\audio.wav,.gradio\flagged\image_filepath\3f169d4dcefa606073dc\download 2.jpeg,Hindi,.gradio\flagged\Doctor Avatar\51171d820ea77b67f045\image.webp,🚨 Processing error: name 'np' is not defined,🚨 Processing error: name 'np' is not defined,,2025-04-11 02:24:28.767324
+.gradio\flagged\Press and Hold to Record\8253a05cd1606f6ec91d\audio.wav,.gradio\flagged\image_filepath\703ec1218247f630e521\download 2.jpeg,English,,,,,2025-04-11 02:29:29.894611
+.gradio\flagged\Press and Hold to Record\82c6b7ef4680588d93e7\audio.wav,.gradio\flagged\image_filepath\ab60b509d7a7d2ded7f7\download 2.jpeg,English,,,,,2025-04-11 02:29:45.203057
+.gradio\flagged\Press and Hold to Record\f0c9dd67e34218dd0405\audio.wav,.gradio\flagged\image_filepath\817aa5530ffd4ad5d944\download 2.jpeg,English,.gradio\flagged\Doctor Avatar\7e983823684db36ea1f4\image.webp, I have a dark dandruff problem what should I do?,"With what I see, I think you have seborrheic dermatitis, a common condition characterized by flaky scalp skin and dandruff. To address this, consider using an over-the-counter anti-dandruff shampoo containing zinc pyrithione or ketoconazole for at least a month. Additionally, regular scalp massages with oils like coconut or olive oil can help reduce flaking and soothe your scalp. If symptoms persist, consult a dermatologist for further guidance.",.gradio\flagged\Doctor Audio\81219709ee7f90fa84bd\final.wav,2025-04-11 02:31:00.745046
+.gradio\flagged\Press and Hold to Record\f754d25077a3a514577c\audio.wav,.gradio\flagged\image_filepath\81fab3499dc251d8c220\download 2.jpeg,Hindi,,,,,2025-04-11 02:38:15.510000
+.gradio\flagged\Press and Hold to Record\d5935e99dd79d21569e8\audio.wav,.gradio\flagged\image_filepath\c0ca3af849f3368c2458\download 2.jpeg,Hindi,,,,,2025-04-11 02:39:36.373867
+.gradio\flagged\Press and Hold to Record\e95dd25e8930a34aa3a6\audio.wav,,Hindi,.gradio\flagged\Doctor Avatar\c726146433c775e5ed39\image.webp, I have a dandruff problem what should I do?,"I see you're experiencing dandruff. Based on your symptoms and condition, I suspect you may be suffering from seborrheic dermatitis or a fungal infection.
+
+* I recommend using an antifungal shampoo or a medicated dandruff shampoo to treat the condition.
+* In addition to using a medicated shampoo, I suggest that you should also:
+  * Use a coal-based powder or a dandruff treatment available in the market
+  * Keep your head a bit dry.",.gradio\flagged\Doctor Audio\58d26852a3d6844cc41f\final.wav,2025-04-11 14:08:36.505952

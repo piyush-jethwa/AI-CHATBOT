@@ -1,0 +1,131 @@
+/* Main container styles */
+.gradio-container {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header styles */
+h1 {
+    color: #2c3e50;
+    font-size: 2.5em;
+    margin-bottom: 0.5em;
+    text-align: center;
+}
+
+/* Input section styles */
+.input-section {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+/* Output section styles */
+.output-section {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Textbox styles */
+textarea, input[type="text"] {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 1em;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    width: 100%;
+}
+
+/* Button styles */
+button {
+    background-color: #3498db;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #2980b9;
+}
+
+/* Doctor avatar styles */
+.doctor-avatar {
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Diagnosis box styles */
+.diagnosis-box {
+    background-color: #f8f9fa;
+    border-left: 4px solid #3498db;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+/* Prescription box styles */
+.prescription-box {
+    background-color: #f8f9fa;
+    border-left: 4px solid #2ecc71;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+/* Accordion styles */
+.accordion {
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+
+/* Tab styles */
+.tabs {
+    margin-bottom: 20px;
+}
+
+/* Audio player styles */
+audio {
+    width: 100%;
+    margin: 10px 0;
+}
+
+/* Dropdown styles */
+select {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 1em;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    width: 100%;
+}
+
+/* Image upload styles */
+.image-upload {
+    border: 2px dashed #ddd;
+    border-radius: 5px;
+    padding: 20px;
+    text-align: center;
+    margin: 10px 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .gradio-container {
+        padding: 10px;
+    }
+    
+    h1 {
+        font-size: 2em;
+    }
+    
+    .input-section, .output-section {
+        padding: 15px;
+    }
+} 

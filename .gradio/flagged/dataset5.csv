@@ -1,0 +1,11 @@
+audio_filepath,image_filepath,Response Language,Doctor Avatar,Speech to Text,Doctor's Response,Doctor Audio,timestamp
+.gradio\flagged\audio_filepath\00c081115649af9bc343\audio.wav,.gradio\flagged\image_filepath\4caeaaa9466f9b28b707\download 2.jpeg,Hindi,.gradio\flagged\Doctor Avatar\bba805519a9abf55815d\image.webp," I have an n-draft problem, what should I do?","Karein. Dandruff ko aisa samajhiya gaya hai jo gandah, mukhda ko dhoondha ke naram mukhda banne ya tabiyat pe bura prabhav daalta hai.
+
+Dandruff ko paer lagana hai, to aap itna karein:
+
+ * Ek ghanto pehle sabjiyan ka saadhan, aam naram mukhda dekr.
+ * Jhaanti hai, kayi teesar hi pehle 5-10 minute kholne ke liye ek upayog kiye jo danton ke liye ubale ja sakte hain.
+ * Chehre pe chusne ko saath nahin lein, chusne ko saadh lagake.
+ * 4-5 mahino ke baad saadh bahar nikalna chahiye. Dhyan rakhna ki danton ko thanda nahi ho, thanda hone se behtar hai.
+
+Unhone kabhi bhe aagraag alag hi ko hai ki upyah kar log apni hizh khoti khatra ki apun ke upayog - kr.",.gradio\flagged\Doctor Audio\68c5683aa886110fc98b\final.mp3,2025-04-11 01:50:48.708447
