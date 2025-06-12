@@ -13,6 +13,15 @@ from gtts import gTTS
 import base64
 import io
 
+# Verify API key is available
+if not GROQ_API_KEY:
+    st.error("""
+    Error: GROQ_API_KEY not found. Please make sure it's set in:
+    1. Streamlit Secrets (for production)
+    2. .env file (for local development)
+    """)
+    st.stop()
+
 LANGUAGE_CODES = {
     "English": "en",
     "Hindi": "hi",
