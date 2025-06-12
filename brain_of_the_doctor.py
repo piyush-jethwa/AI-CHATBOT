@@ -224,86 +224,54 @@ Doctor: AI Doctor
 
 @lru_cache(maxsize=100)
 def analyze_image_with_query(query, encoded_image, language="English", model="llama3-8b-8192"):
-    """Analyze image with text query using GROQ's vision model with caching"""
-    import logging
-    if not query or not encoded_image:
-        logging.error("Missing required parameters for analyze_image_with_query")
-        return "Error: Missing required parameters for image analysis."
-        
-    client = Groq(api_key=GROQ_API_KEY)
-    
-    # Truncate the base64 string to avoid context length errors
-    MAX_IMAGE_B64_LEN = 8000  # Even smaller to guarantee no context error
-    if len(encoded_image) > MAX_IMAGE_B64_LEN:
-        encoded_image = encoded_image[:MAX_IMAGE_B64_LEN]
-    
-    # Language-specific prompts
-    language_prompts = {
-        "English": """You are a dermatology specialist AI assistant. Your task is to analyze skin conditions and provide accurate diagnoses.
-        For dandruff specifically, look for:
-        1. White or yellowish flakes on the scalp
-        2. Itchy scalp
-        3. Dry or oily scalp
-        4. Redness or inflammation
-        
-        Provide your analysis in this format:
-        
-        DIAGNOSIS:
-        - Condition identified
-        - Severity level (Mild/Moderate/Severe)
-        - Key symptoms observed
-        
-        RECOMMENDATIONS:
-        - Immediate care steps
-        - Lifestyle changes
-        - Products to use/avoid
-        
-        PRESCRIPTION:
-        - Specific medications or treatments
-        - Application instructions
-        - Follow-up timeline""",
-        
-        "Hindi": "आप एक त्वचा विशेषज्ञ AI सहायक हैं। कृपया उत्तर हिंदी में दें।\nआपका काम त्वचा की स्थितियों का विश्लेषण करना और सटीक निदान प्रदान करना है।\nरूसी के लिए विशेष रूप से देखें:\n1. स्कैल्प पर सफेद या पीले रंग के फ्लेक्स\n2. खुजली वाला स्कैल्प\n3. सूखा या तैलीय स्कैल्प\n4. लालिमा या सूजन\n\nअपना विश्लेषण इस प्रारूप में प्रदान करें:\n\nनिदान:\n- पहचानी गई स्थिति\n- गंभीरता स्तर (हल्का/मध्यम/गंभीर)\n- मुख्य लक्षण\n\nसिफारिशें:\n- तत्काल देखभाल के कदम\n- जीवनशैली में परिवर्तन\n- उपयोग करने/बचने के उत्पाद\n\nनुस्खा:\n- विशिष्ट दवाएं या उपचार\n- अनुप्रयोग निर्देश\n- फॉलो-अप समयरेखा",
-        
-        "Marathi": "तुम्ही एक त्वचारोग तज्ज्ञ AI सहाय्यक आहात. कृपया उत्तर मराठीत द्या.\nतुमचे काम त्वचेच्या स्थितीचे विश्लेषण करणे आणि अचूक निदान द्या आहे.\nकोंड्यासाठी विशेषतः पहा:\n1. डोक्यावर पांढरे किंवा पिवळे फ्लेक्स\n2. खाज सुटणारे डोके\n3. कोरडे किंवा तैलयुक्त डोके\n4. लालसरपणा किंवा सूज\n\nतुमचे विश्लेषण या स्वरूपात द्या:\n\nनिदान:\n- ओळखलेली स्थिती\n- गंभीरता पातळी (हलकी/मध्यम/गंभीर)\n- मुख्य लक्षणे\n\nशिफारसी:\n- त्वरित काळजीचे पावले\n- जीवनशैली बदल\n- वापरण्यासाठी/टाळण्यासाठी उत्पादने\n\nऔषधोपचार:\n- विशिष्ट औषधे किंवा उपचार\n- वापरण्याच्या सूचना\n- पुन्हा तपासणी वेळ"
-    }
-    
-    # Get the appropriate prompt for the selected language
-    system_prompt = language_prompts.get(language, language_prompts["English"])
-    
-    # Format the user query
-    user_query = f"""Please analyze this image of a skin condition. The patient reports: {query}
-    Focus on identifying visible symptoms and providing a detailed diagnosis and treatment plan.
-    [Image: data:image/jpeg;base64,{encoded_image}]"""
-    
-    messages = [
-        {
-            "role": "system",
-            "content": system_prompt
-        },
-        {
-            "role": "user",
-            "content": user_query
-        }
-    ]
-    
+    """Analyze image with query using Groq"""
     try:
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        # Language-specific prompts
+        prompts = {
+            "English": "You are a medical expert. Analyze this medical image and provide a detailed diagnosis: ",
+            "Hindi": "आप एक चिकित्सा विशेषज्ञ हैं। इस चिकित्सा छवि का विश्लेषण करें और विस्तृत निदान प्रदान करें: ",
+            "Marathi": "तुम्ही एक वैद्यकीय तज्ज्ञ आहात. या वैद्यकीय प्रतिमेचे विश्लेषण करा आणि तपशीलवार निदान द्या: "
+        }
+        
+        # Get the appropriate prompt for the language
+        prompt = prompts.get(language, prompts["English"])
+        
+        # Prepare the message with image
+        messages = [
+            {
+                "role": "system",
+                "content": prompt
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": query},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{encoded_image}"
+                        }
+                    }
+                ]
+            }
+        ]
+        
+        # Make the API call
         response = client.chat.completions.create(
-            messages=messages,
             model=model,
-            max_tokens=800
+            messages=messages,
+            temperature=0.7,
+            max_tokens=1000
         )
-        content = response.choices[0].message.content
-        if not isinstance(content, str):
-            content = str(content)
-        if not content.strip():
-            logging.error("Empty response content from analyze_image_with_query")
-            return "Error: Empty response from image analysis."
-        return content
+        
+        # Extract and return the response
+        diagnosis = response.choices[0].message.content.strip()
+        return diagnosis
+        
     except Exception as e:
-        logging.error(f"Vision analysis failed: {str(e)}")
-        if "model_not_found" in str(e):
-            return analyze_text_query(query, language)
+        print(f"Error in analyze_image_with_query: {str(e)}")
         return f"Vision analysis failed: {str(e)}"
 
 def analyze_image(image_path):
@@ -317,62 +285,41 @@ def analyze_image(image_path):
 
 @lru_cache(maxsize=100)
 def analyze_text_query(query, language="English", model="llama3-8b-8192", max_retries=3):
-    """Process text queries with GROQ API with caching"""
-    import logging
-    if not query or not isinstance(query, str):
-        logging.error("Invalid query parameter for analyze_text_query")
-        return "Error: Invalid query parameter."
+    """Analyze text query using Groq"""
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
         
-    client = Groq(api_key=GROQ_API_KEY)
-    
-    # Language-specific prompts
-    language_prompts = {
-        "English": "You are a medical specialist. Analyze the following symptoms and provide a diagnosis in English:",
-        "Hindi": "आप एक चिकित्सा विशेषज्ञ हैं। कृपया उत्तर हिंदी में दें। निम्नलिखित लक्षणों का विश्लेषण करें और हिंदी में निदान प्रदान करें:",
-        "Marathi": "तुम्ही एक वैद्यकीय तज्ज्ञ आहात. कृपया उत्तर मराठीत द्या. खालील लक्षणांचे विश्लेषण करा आणि मराठीमध्ये निदान द्या:"
-    }
-    
-    # Get the appropriate prompt for the selected language
-    system_prompt = language_prompts.get(language, language_prompts["English"])
-    
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": query}
-    ]
-
-    last_error = None
-    for attempt in range(max_retries):
-        try:
-            response = client.chat.completions.create(
-                messages=messages,
-                model=model,
-                max_tokens=800
-            )
-            
-            if not response.choices:
-                logging.error("Empty response from API in analyze_text_query")
-                return "Error: Empty response from text analysis."
-                
-            content = response.choices[0].message.content
-            print("MODEL RAW OUTPUT:", repr(content))
-            if not isinstance(content, str):
-                content = str(content)
-            if not content.strip():
-                logging.error("Empty content string from analyze_text_query")
-                return "Error: Empty content from text analysis."
-            return content
-            
-        except GroqError as e:
-            last_error = e
-            if attempt < max_retries - 1:
-                time.sleep(1 * (attempt + 1))  # Exponential backoff
-                continue
-            logging.error(f"API request failed after {max_retries} attempts: {str(e)}")
-            return f"Text analysis failed: {str(e)}"
-            
-        except Exception as e:
-            logging.error(f"Analysis failed: {str(e)}")
-            return f"Text analysis failed: {str(e)}"
+        # Language-specific prompts
+        prompts = {
+            "English": "You are a medical expert. Analyze the following symptoms and provide a detailed diagnosis: ",
+            "Hindi": "आप एक चिकित्सा विशेषज्ञ हैं। निम्नलिखित लक्षणों का विश्लेषण करें और विस्तृत निदान प्रदान करें: ",
+            "Marathi": "तुम्ही एक वैद्यकीय तज्ज्ञ आहात. खालील लक्षणांचे विश्लेषण करा आणि तपशीलवार निदान द्या: "
+        }
+        
+        # Get the appropriate prompt for the language
+        prompt = prompts.get(language, prompts["English"])
+        
+        # Prepare the message
+        messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": query}
+        ]
+        
+        # Make the API call
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        # Extract and return the response
+        diagnosis = response.choices[0].message.content.strip()
+        return diagnosis
+        
+    except Exception as e:
+        print(f"Error in analyze_text_query: {str(e)}")
+        return f"Analysis failed: {str(e)}"
 
 if __name__ == "__main__":
     os.system("python D:\\EDIT KAREGE\\ai-doctor-2.0-voice-and-vision\\ai-doctor-2.0-voice-and-vision\\ai_doctor_fully_fixed.py")
