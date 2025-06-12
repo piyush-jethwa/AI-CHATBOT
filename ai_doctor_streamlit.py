@@ -117,7 +117,7 @@ if submit_btn:
         st.markdown("---")
         st.markdown("## 📋 Diagnosis Results")
         st.markdown("<div class='section-title'>Your Input Summary</div>", unsafe_allow_html=True)
-        st.text_area("", value=text_input or "Image analysis", height=50, disabled=True)
+        st.text_area("", value=text_input or "Image analysis", height=70, disabled=True)
         st.markdown("<div class='section-title'>🩺 Detailed Diagnosis</div>", unsafe_allow_html=True)
         st.markdown(f"<div class='diagnosis-card'>{diagnosis or ''}</div>", unsafe_allow_html=True)
         st.markdown("<div class='section-title'>💊 Prescription</div>", unsafe_allow_html=True)
