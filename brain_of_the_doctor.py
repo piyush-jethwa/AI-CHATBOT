@@ -1,5 +1,17 @@
-from dotenv import load_dotenv
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    import streamlit as st
+    # Load variables from .env (only used in local development)
+    load_dotenv()
+    
+    # First try to get from .env, then from Streamlit secrets
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY") or st.secrets["GROQ_API_KEY"]
+except ImportError:
+    print("Warning: python-dotenv not installed. Environment variables must be set manually.")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+except Exception as e:
+    print(f"Warning: Could not load .env file: {e}. Environment variables must be set manually.")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 import os
 import sys
@@ -293,19 +305,6 @@ def analyze_image_with_query(query, encoded_image, language="English", model="ll
         if "model_not_found" in str(e):
             return analyze_text_query(query, language)
         return f"Vision analysis failed: {str(e)}"
-
-# Validate GROQ API key
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-if not GROQ_API_KEY:
-    print("""
-    ERROR: GROQ_API_KEY environment variable not set.
-    Please either:
-    1. Create a .env file in the project root with GROQ_API_KEY=your_key_here
-    2. Or set it in your system environment variables
-    
-    You can get an API key from: https://console.groq.com/
-    """)
-    sys.exit(1)
 
 def analyze_image(image_path):
     """Analyze image using computer vision"""
