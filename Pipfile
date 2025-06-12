@@ -11,6 +11,7 @@ gtts = "*"
 elevenlabs = "*"
 gradio = "*"
 python-dotenv = "*"
+soundfile = "*"
 
 [dev-packages]
 
