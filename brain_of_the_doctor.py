@@ -228,11 +228,40 @@ def analyze_image_with_query(query, encoded_image, language="English", model="ll
     try:
         client = Groq(api_key=GROQ_API_KEY)
         
-        # Language-specific prompts
+        # Language-specific prompts with detailed instructions
         prompts = {
-            "English": "You are a medical expert. Analyze this medical image and provide a detailed diagnosis: ",
-            "Hindi": "आप एक चिकित्सा विशेषज्ञ हैं। इस चिकित्सा छवि का विश्लेषण करें और विस्तृत निदान प्रदान करें: ",
-            "Marathi": "तुम्ही एक वैद्यकीय तज्ज्ञ आहात. या वैद्यकीय प्रतिमेचे विश्लेषण करा आणि तपशीलवार निदान द्या: "
+            "English": """You are a medical expert. Please provide a complete diagnosis in English.
+            Include:
+            1. Detailed analysis of visible symptoms
+            2. Possible conditions
+            3. Recommended treatments
+            4. Lifestyle recommendations
+            5. Follow-up advice
+            
+            Format your response in clear sections with proper medical terminology.
+            Patient's description: """,
+            
+            "Hindi": """आप एक चिकित्सा विशेषज्ञ हैं। कृपया पूरा निदान हिंदी में प्रदान करें।
+            इसमें शामिल करें:
+            1. दृश्य लक्षणों का विस्तृत विश्लेषण
+            2. संभावित स्थितियां
+            3. अनुशंसित उपचार
+            4. जीवनशैली की सिफारिशें
+            5. फॉलो-अप सलाह
+            
+            अपना उत्तर स्पष्ट खंडों में प्रारूपित करें और उचित चिकित्सा शब्दावली का उपयोग करें।
+            रोगी का विवरण: """,
+            
+            "Marathi": """तुम्ही एक वैद्यकीय तज्ज्ञ आहात. कृपया पूर्ण निदान मराठीमध्ये द्या.
+            यामध्ये समाविष्ट करा:
+            1. दृश्य लक्षणांचे तपशीलवार विश्लेषण
+            2. संभाव्य स्थिती
+            3. शिफारस केलेले उपचार
+            4. जीवनशैली शिफारसी
+            5. पुन्हा तपासणी सल्ला
+            
+            तुमचे उत्तर स्पष्ट विभागांमध्ये फॉर्मॅट करा आणि योग्य वैद्यकीय शब्दावली वापरा.
+            रुग्णाचे वर्णन: """
         }
         
         # Get the appropriate prompt for the language
@@ -263,7 +292,7 @@ def analyze_image_with_query(query, encoded_image, language="English", model="ll
             model=model,
             messages=messages,
             temperature=0.7,
-            max_tokens=1000
+            max_tokens=1500  # Increased for longer responses
         )
         
         # Extract and return the response
@@ -289,11 +318,40 @@ def analyze_text_query(query, language="English", model="llama3-8b-8192", max_re
     try:
         client = Groq(api_key=GROQ_API_KEY)
         
-        # Language-specific prompts
+        # Language-specific prompts with detailed instructions
         prompts = {
-            "English": "You are a medical expert. Analyze the following symptoms and provide a detailed diagnosis: ",
-            "Hindi": "आप एक चिकित्सा विशेषज्ञ हैं। निम्नलिखित लक्षणों का विश्लेषण करें और विस्तृत निदान प्रदान करें: ",
-            "Marathi": "तुम्ही एक वैद्यकीय तज्ज्ञ आहात. खालील लक्षणांचे विश्लेषण करा आणि तपशीलवार निदान द्या: "
+            "English": """You are a medical expert. Please provide a complete diagnosis in English.
+            Include:
+            1. Detailed analysis of symptoms
+            2. Possible conditions
+            3. Recommended treatments
+            4. Lifestyle recommendations
+            5. Follow-up advice
+            
+            Format your response in clear sections with proper medical terminology.
+            Patient's symptoms: """,
+            
+            "Hindi": """आप एक चिकित्सा विशेषज्ञ हैं। कृपया पूरा निदान हिंदी में प्रदान करें।
+            इसमें शामिल करें:
+            1. लक्षणों का विस्तृत विश्लेषण
+            2. संभावित स्थितियां
+            3. अनुशंसित उपचार
+            4. जीवनशैली की सिफारिशें
+            5. फॉलो-अप सलाह
+            
+            अपना उत्तर स्पष्ट खंडों में प्रारूपित करें और उचित चिकित्सा शब्दावली का उपयोग करें।
+            रोगी के लक्षण: """,
+            
+            "Marathi": """तुम्ही एक वैद्यकीय तज्ज्ञ आहात. कृपया पूर्ण निदान मराठीमध्ये द्या.
+            यामध्ये समाविष्ट करा:
+            1. लक्षणांचे तपशीलवार विश्लेषण
+            2. संभाव्य स्थिती
+            3. शिफारस केलेले उपचार
+            4. जीवनशैली शिफारसी
+            5. पुन्हा तपासणी सल्ला
+            
+            तुमचे उत्तर स्पष्ट विभागांमध्ये फॉर्मॅट करा आणि योग्य वैद्यकीय शब्दावली वापरा.
+            रुग्णाचे वर्णन: """
         }
         
         # Get the appropriate prompt for the language
@@ -310,7 +368,7 @@ def analyze_text_query(query, language="English", model="llama3-8b-8192", max_re
             model=model,
             messages=messages,
             temperature=0.7,
-            max_tokens=1000
+            max_tokens=1500  # Increased for longer responses
         )
         
         # Extract and return the response
