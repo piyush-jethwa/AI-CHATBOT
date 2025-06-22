@@ -1,144 +1,383 @@
-# if you dont use pipenv uncomment the following:
-# from dotenv import load_dotenv
-# load_dotenv()
-
-#Step1: Setup Audio recorder (ffmpeg & portaudio)
-# ffmpeg, portaudio, pyaudio
-import logging
-import speech_recognition as sr
 import os
-from groq import Groq
-import numpy as np
-import streamlit as st
+import sys
+import base64
+import time
+import hashlib
+import shutil
 import tempfile
-import soundfile as sf
-from datetime import datetime
-from dotenv import load_dotenv
+from functools import lru_cache
+from groq import Groq, GroqError
 
-# Load environment variables
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    import streamlit as st
+    # Load variables from .env (only used in local development)
+    load_dotenv()
+    
+    # First try to get from .env, then from Streamlit secrets
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY") or st.secrets["GROQ_API_KEY"]
+except ImportError:
+    print("Warning: python-dotenv not installed. Environment variables must be set manually.")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+except Exception as e:
+    print(f"Warning: Could not load .env file: {e}. Environment variables must be set manually.")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Initialize Groq client
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-def record_audio(file_path):
-    """
-    Record audio using Streamlit's built-in audio recorder
-    """
+def test_api_key(api_key):
+    """Test if the provided API key is valid by making a minimal request"""
     try:
-        # Create a temporary file to store the audio
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-            temp_path = temp_file.name
-
-        # Use Streamlit's audio recorder
-        audio_bytes = st.audio_recorder(
-            text="Click to record",
-            recording_color="#e74c3c",
-            neutral_color="#3498db",
-            sample_rate=16000
-        )
-
-        if audio_bytes is not None:
-            # Convert audio bytes to numpy array
-            audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
-            
-            # Save the audio using soundfile
-            sf.write(temp_path, audio_array, 16000)
-            
-            # Move the temporary file to the desired location
-            os.replace(temp_path, file_path)
-            logger.info(f"Audio recorded and saved to {file_path}")
+        client = Groq(api_key=api_key)
+        # Make a minimal request to list available models or similar
+        models = client.models.list()
+        if models:
             return True
-        else:
-            logger.warning("No audio was recorded")
-            return False
-
+        return False
     except Exception as e:
-        logger.error(f"Error recording audio: {str(e)}")
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
+        print(f"API key test failed: {str(e)}")
         return False
 
-# Step2: Setup Speech to text–STT–model for transcription
-GROQ_API_KEY=os.environ.get("GROQ_API_KEY")
-stt_model="whisper-large-v3"
-
-def transcribe_with_groq(text):
-    """
-    Process the transcribed text using Groq API
-    """
+def handle_long_path(file_path):
+    """Handle long file paths by creating a shorter temporary path"""
     try:
-        # Create a chat completion
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a medical assistant. Analyze the patient's symptoms and provide a detailed response."
-                },
-                {
-                    "role": "user",
-                    "content": text
-                }
-            ],
-            model="mixtral-8x7b-32768",
+        # Create a temporary directory
+        temp_dir = tempfile.mkdtemp()
+        # Get the file extension
+        _, ext = os.path.splitext(file_path)
+        # Create a new shorter path
+        new_path = os.path.join(temp_dir, f"temp{ext}")
+        # Copy the file to the new location
+        shutil.copy2(file_path, new_path)
+        return new_path
+    except Exception as e:
+        print(f"Error handling long path: {str(e)}")
+        return file_path
+
+def encode_image(image_path, max_size=256):
+    """Convert image to base64 string with optional resizing"""
+    try:
+        # Handle long paths
+        image_path = handle_long_path(image_path)
+        
+        import cv2
+        # Read and optionally resize image
+        img = cv2.imread(image_path)
+        if img is None:
+            raise ValueError("Could not read image file")
+            
+        height, width = img.shape[:2]
+        if max(height, width) > max_size:
+            scale = max_size / max(height, width)
+            img = cv2.resize(img, (0,0), fx=scale, fy=scale)
+            
+        # Encode with lower quality
+        _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 60])
+        encoded = base64.b64encode(buffer).decode('utf-8')
+        return encoded
+        
+    except Exception:
+        # Fallback to original method if OpenCV fails
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
+
+PRESCRIPTION_TEMPLATE = """
+PRESCRIPTION
+Date: {date}
+Patient: {patient_name}
+Diagnosis: {diagnosis}
+
+Medications:
+{medications}
+
+Instructions:
+{instructions}
+
+Doctor: AI Doctor
+"""
+
+def generate_prescription(diagnosis, language="English"):
+    """Generate a prescription based on diagnosis"""
+    from datetime import datetime
+    
+    # Validate diagnosis parameter
+    if not diagnosis or not isinstance(diagnosis, str):
+        raise ValueError("Diagnosis must be a non-empty string")
+    
+    # Expanded medication mapping with detailed instructions in multiple languages
+    meds_map = {
+        "Dandruff": {
+            "English": {
+                "medications": [
+                    "Ketoconazole 2% shampoo",
+                    "Selenium sulfide 2.5% shampoo",
+                    "Zinc pyrithione 1% shampoo"
+                ],
+                "instructions": [
+                    "Use medicated shampoo twice weekly",
+                    "Leave shampoo on scalp for 5-10 minutes before rinsing",
+                    "Avoid scratching the scalp",
+                    "Use gentle, fragrance-free hair products"
+                ],
+                "follow_up": "Follow up in 2 weeks if condition persists"
+            },
+            "Hindi": {
+                "medications": [
+                    "कीटोकोनाज़ोल 2% शैम्पू",
+                    "सेलेनियम सल्फाइड 2.5% शैम्पू",
+                    "जिंक पायरिथियोन 1% शैम्पू"
+                ],
+                "instructions": [
+                    "सप्ताह में दो बार मेडिकेटेड शैम्पू का उपयोग करें",
+                    "रिंस करने से पहले 5-10 मिनट तक शैम्पू को स्कैल्प पर छोड़ दें",
+                    "स्कैल्प को खरोंचने से बचें",
+                    "हल्के, सुगंध-मुक्त हेयर प्रोडक्ट्स का उपयोग करें"
+                ],
+                "follow_up": "यदि स्थिति बनी रहती है तो 2 सप्ताह में फॉलो-अप करें"
+            },
+            "Marathi": {
+                "medications": [
+                    "कीटोकोनाज़ोल 2% शॅम्पू",
+                    "सेलेनियम सल्फाइड 2.5% शॅम्पू",
+                    "जिंक पायरिथियोन 1% शॅम्पू"
+                ],
+                "instructions": [
+                    "आठवड्यातून दोनदा औषधी शॅम्पू वापरा",
+                    "धुण्याआधी 5-10 मिनिटे शॅम्पू डोक्यावर ठेवा",
+                    "डोक्यावर खाजवू नका",
+                    "हलके, सुगंध-मुक्त केसांचे उत्पादने वापरा"
+                ],
+                "follow_up": "जर स्थिती टिकून राहिली तर 2 आठवड्यांनी पुन्हा तपासणी करा"
+            }
+        }
+    }
+    
+    # Get current date
+    date = datetime.now().strftime("%d/%m/%Y")
+    
+    # Get appropriate medication based on language
+    treatment = meds_map.get(diagnosis, {}).get(language, {
+        "medications": ["Consult doctor for proper medication"],
+        "instructions": ["Follow doctor's advice"],
+        "follow_up": "Follow up as recommended by doctor"
+    })
+    
+    # Language-specific prescription templates
+    templates = {
+        "English": """
+PRESCRIPTION
+Date: {date}
+Patient: [Patient Name]
+Diagnosis: {diagnosis}
+
+Medications:
+{medications}
+
+Instructions:
+{instructions}
+
+Follow-up: {follow_up}
+
+Doctor: AI Doctor
+""",
+        "Hindi": """
+नुस्खा
+दिनांक: {date}
+रोगी: [रोगी का नाम]
+निदान: {diagnosis}
+
+दवाइयां:
+{medications}
+
+निर्देश:
+{instructions}
+
+फॉलो-अप: {follow_up}
+
+डॉक्टर: AI डॉक्टर
+""",
+        "Marathi": """
+औषधोपचार
+दिनांक: {date}
+रुग्ण: [रुग्णाचे नाव]
+निदान: {diagnosis}
+
+औषधे:
+{medications}
+
+सूचना:
+{instructions}
+
+पुन्हा तपासणी: {follow_up}
+
+डॉक्टर: AI डॉक्टर
+"""
+    }
+    
+    template = templates.get(language, templates["English"])
+    
+    return template.format(
+        date=date,
+        diagnosis=diagnosis,
+        medications="\n".join(f"- {med}" for med in treatment["medications"]),
+        instructions="\n".join(f"- {inst}" for inst in treatment["instructions"]),
+        follow_up=treatment["follow_up"]
+    )
+
+@lru_cache(maxsize=100)
+def analyze_image_with_query(query, encoded_image, language="English", model="llama3-8b-8192"):
+    """Analyze image with query using Groq"""
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        # Language-specific prompts with detailed instructions
+        prompts = {
+            "English": """You are a medical expert. Please provide a complete diagnosis in English.
+            Include:
+            1. Detailed analysis of visible symptoms
+            2. Possible conditions
+            3. Recommended treatments
+            4. Lifestyle recommendations
+            5. Follow-up advice
+            
+            Format your response in clear sections with proper medical terminology.
+            Patient's description: """,
+            
+            "Hindi": """आप एक चिकित्सा विशेषज्ञ हैं। कृपया पूरा निदान हिंदी में प्रदान करें।
+            इसमें शामिल करें:
+            1. दृश्य लक्षणों का विस्तृत विश्लेषण
+            2. संभावित स्थितियां
+            3. अनुशंसित उपचार
+            4. जीवनशैली की सिफारिशें
+            5. फॉलो-अप सलाह
+            
+            अपना उत्तर स्पष्ट खंडों में प्रारूपित करें और उचित चिकित्सा शब्दावली का उपयोग करें।
+            रोगी का विवरण: """,
+            
+            "Marathi": """तुम्ही एक वैद्यकीय तज्ज्ञ आहात. कृपया पूर्ण निदान मराठीमध्ये द्या.
+            यामध्ये समाविष्ट करा:
+            1. दृश्य लक्षणांचे तपशीलवार विश्लेषण
+            2. संभाव्य स्थिती
+            3. शिफारस केलेले उपचार
+            4. जीवनशैली शिफारसी
+            5. पुन्हा तपासणी सल्ला
+            
+            तुमचे उत्तर स्पष्ट विभागांमध्ये फॉर्मॅट करा आणि योग्य वैद्यकीय शब्दावली वापरा.
+            रुग्णाचे वर्णन: """
+        }
+        
+        # Get the appropriate prompt for the language
+        prompt = prompts.get(language, prompts["English"])
+        
+        # Prepare the message with image
+        messages = [
+            {
+                "role": "system",
+                "content": prompt
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": query},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{encoded_image}"
+                        }
+                    }
+                ]
+            }
+        ]
+        
+        # Make the API call
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
             temperature=0.7,
-            max_tokens=1024,
-            top_p=1,
-            stream=False
+            max_tokens=1500  # Increased for longer responses
         )
         
-        return chat_completion.choices[0].message.content
-    except Exception as e:
-        logger.error(f"Error processing with Groq: {str(e)}")
-        return None
-
-def transcribe_audio(file_path):
-    """
-    Transcribe audio using Google Speech Recognition
-    """
-    try:
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(file_path) as source:
-            audio_data = recognizer.record(source)
-            text = recognizer.recognize_google(audio_data)
-            return text
-    except Exception as e:
-        logger.error(f"Error transcribing audio: {str(e)}")
-        return None
-
-def main():
-    st.title("Voice of the Patient")
-    
-    # Create a directory for audio files if it doesn't exist
-    os.makedirs("recordings", exist_ok=True)
-    
-    # Record audio
-    if st.button("Start Recording"):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_path = os.path.join("recordings", f"recording_{timestamp}.wav")
+        # Extract and return the response
+        diagnosis = response.choices[0].message.content.strip()
+        return diagnosis
         
-        if record_audio(file_path):
-            st.success("Recording completed!")
+    except Exception as e:
+        print(f"Error in analyze_image_with_query: {str(e)}")
+        return f"Vision analysis failed: {str(e)}"
+
+def analyze_image(image_path):
+    """Analyze image using computer vision"""
+    try:
+        from image_analysis import analyze_image_colors
+        analysis = analyze_image_colors(image_path)
+        return f"Image analysis results: Dominant colors are {', '.join(analysis['dominant_colors'])}"
+    except Exception as e:
+        raise ValueError(f"Image analysis failed: {str(e)}")
+
+@lru_cache(maxsize=100)
+def analyze_text_query(query, language="English", model="llama3-8b-8192", max_retries=3):
+    """Analyze text query using Groq"""
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        # Language-specific prompts with detailed instructions
+        prompts = {
+            "English": """You are a medical expert. Please provide a complete diagnosis in English.
+            Include:
+            1. Detailed analysis of symptoms
+            2. Possible conditions
+            3. Recommended treatments
+            4. Lifestyle recommendations
+            5. Follow-up advice
             
-            # Transcribe the audio
-            text = transcribe_audio(file_path)
-            if text:
-                st.write("Transcription:", text)
-                
-                # Process with Groq
-                response = transcribe_with_groq(text)
-                if response:
-                    st.write("AI Analysis:", response)
-                else:
-                    st.error("Failed to process with AI")
-            else:
-                st.error("Failed to transcribe the audio")
-        else:
-            st.error("Failed to record audio")
+            Format your response in clear sections with proper medical terminology.
+            Patient's symptoms: """,
+            
+            "Hindi": """आप एक चिकित्सा विशेषज्ञ हैं। कृपया पूरा निदान हिंदी में प्रदान करें।
+            इसमें शामिल करें:
+            1. लक्षणों का विस्तृत विश्लेषण
+            2. संभावित स्थितियां
+            3. अनुशंसित उपचार
+            4. जीवनशैली की सिफारिशें
+            5. फॉलो-अप सलाह
+            
+            अपना उत्तर स्पष्ट खंडों में प्रारूपित करें और उचित चिकित्सा शब्दावली का उपयोग करें।
+            रोगी के लक्षण: """,
+            
+            "Marathi": """तुम्ही एक वैद्यकीय तज्ज्ञ आहात. कृपया पूर्ण निदान मराठीमध्ये द्या.
+            यामध्ये समाविष्ट करा:
+            1. लक्षणांचे तपशीलवार विश्लेषण
+            2. संभाव्य स्थिती
+            3. शिफारस केलेले उपचार
+            4. जीवनशैली शिफारसी
+            5. पुन्हा तपासणी सल्ला
+            
+            तुमचे उत्तर स्पष्ट विभागांमध्ये फॉर्मॅट करा आणि योग्य वैद्यकीय शब्दावली वापरा.
+            रुग्णाचे वर्णन: """
+        }
+        
+        # Get the appropriate prompt for the language
+        prompt = prompts.get(language, prompts["English"])
+        
+        # Prepare the message
+        messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": query}
+        ]
+        
+        # Make the API call
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=1500  # Increased for longer responses
+        )
+        
+        # Extract and return the response
+        diagnosis = response.choices[0].message.content.strip()
+        return diagnosis
+        
+    except Exception as e:
+        print(f"Error in analyze_text_query: {str(e)}")
+        return f"Analysis failed: {str(e)}"
 
 if __name__ == "__main__":
-    main()
+    os.system("python D:\\EDIT KAREGE\\ai-doctor-2.0-voice-and-vision\\ai-doctor-2.0-voice-and-vision\\ai_doctor_fully_fixed.py")
