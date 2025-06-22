@@ -135,12 +135,12 @@ if submit_btn:
                     diagnosis = analyze_image_with_query(text_input or "Analyze this skin condition", image_base64, response_language)
                     prescription = generate_prescription(diagnosis, response_language)
                 
-                # Audio diagnosis (first sentence only)
+                # Audio diagnosis and prescription
                 audio_bytes = None
-                if diagnosis:
-                    short_diagnosis = diagnosis.split('.')[0] + '.' if '.' in diagnosis else diagnosis
+                if diagnosis and prescription:
+                    full_text_for_audio = f"Diagnosis: {diagnosis}. Prescription: {prescription}"
                     try:
-                        tts = gTTS(text=short_diagnosis, lang=language_code)
+                        tts = gTTS(text=full_text_for_audio, lang=language_code)
                         audio_bytes_io = io.BytesIO()
                         tts.write_to_fp(audio_bytes_io)
                         audio_bytes = audio_bytes_io.getvalue()
