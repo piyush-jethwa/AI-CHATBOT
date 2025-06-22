@@ -5,22 +5,41 @@ from brain_of_the_doctor import (
     encode_image,
     analyze_image_with_query,
     generate_prescription,
-    analyze_text_query,
-    GROQ_API_KEY
+    analyze_text_query
 )
-from voice_of_the_patient import transcribe_with_groq
+try:
+    from voice_of_the_patient import transcribe_with_groq
+except ImportError as e:
+    st.error(f"Error importing voice module: {e}")
+    # Create a fallback function
+    def transcribe_with_groq(stt_model, audio_filepath, GROQ_API_KEY):
+        st.error("Voice transcription not available due to import error")
+        return None
+
 from gtts import gTTS
 import base64
 import io
 
-# Verify API key is available
-if not GROQ_API_KEY:
-    st.error("""
-    Error: GROQ_API_KEY not found. Please make sure it's set in:
-    1. Streamlit Secrets (for production)
-    2. .env file (for local development)
-    """)
-    st.stop()
+# Try to get API key from Streamlit secrets first, then environment variables
+try:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+    st.success("✅ API key retrieved from Streamlit secrets")
+except (KeyError, AttributeError) as e:
+    GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+    if GROQ_API_KEY:
+        st.success("✅ API key retrieved from environment variables")
+    else:
+        st.error("❌ No API key found! Please add GROQ_API_KEY to Streamlit secrets.")
+
+# Debug: Show API key status (without revealing the key)
+if GROQ_API_KEY:
+    st.info(f"🔑 API Key Status: Found (Length: {len(GROQ_API_KEY)} characters)")
+    if GROQ_API_KEY.startswith("gsk_"):
+        st.success("✅ API Key format looks correct (starts with 'gsk_')")
+    else:
+        st.warning("⚠️ API Key format may be incorrect (should start with 'gsk_')")
+else:
+    st.error("❌ No API key available!")
 
 LANGUAGE_CODES = {
     "English": "en",
@@ -66,73 +85,84 @@ with col1:
 
 with col2:
     st.markdown("### Your Doctor")
-    st.image("portrait-3d-female-doctor[1].jpg", caption="Your Doctor", use_column_width=True)
+    st.image("portrait-3d-female-doctor[1].jpg", caption="Your Doctor", use_container_width=True)
 
 # Output section
 if submit_btn:
-    with st.spinner("Processing..."):
-        # Audio input handling
-        if audio_input is not None:
-            temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(audio_input.name)[-1])
-            temp_audio.write(audio_input.read())
-            temp_audio.close()
-            audio_path = temp_audio.name
-            text_input = transcribe_with_groq(
-                stt_model="whisper-large-v3",
-                audio_filepath=audio_path,
-                GROQ_API_KEY=os.environ.get("GROQ_API_KEY")
-            )
-            os.remove(audio_path)
-        # Image input handling
-        image_base64 = None
-        if image_input is not None:
-            temp_image = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(image_input.name)[-1])
-            temp_image.write(image_input.read())
-            temp_image.close()
-            image_base64 = encode_image(temp_image.name)
-            os.remove(temp_image.name)
-        # Diagnosis logic
-        diagnosis = None
-        prescription = None
-        audio_filepath = None
-        language_code = LANGUAGE_CODES.get(response_language, "en")
-        if text_input and not image_base64:
-            diagnosis = analyze_text_query(text_input, response_language)
-            prescription = generate_prescription(diagnosis, response_language)
-        elif image_base64:
-            diagnosis = analyze_image_with_query(text_input or "Analyze this skin condition", image_base64, response_language)
-            prescription = generate_prescription(diagnosis, response_language)
-        # Audio diagnosis (full content)
-        audio_bytes = None
-        if diagnosis:
+    if not GROQ_API_KEY:
+        st.error("❌ Cannot proceed without API key. Please add GROQ_API_KEY to Streamlit secrets.")
+    else:
+        with st.spinner("Processing..."):
             try:
-                tts = gTTS(text=diagnosis, lang=language_code)
-                audio_bytes_io = io.BytesIO()
-                tts.write_to_fp(audio_bytes_io)
-                audio_bytes = audio_bytes_io.getvalue()
-            except Exception as e:
-                st.warning(f"Audio generation failed: {e}")
-                # Fallback to English if language not supported
-                if language_code != "en":
-                    st.info("Falling back to English audio...")
+                # Audio input handling
+                if audio_input is not None:
+                    temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(audio_input.name)[-1])
+                    temp_audio.write(audio_input.read())
+                    temp_audio.close()
+                    audio_path = temp_audio.name
+                    st.info("🎤 Processing audio input...")
+                    text_input = transcribe_with_groq(
+                        stt_model="whisper-large-v3",
+                        audio_filepath=audio_path,
+                        GROQ_API_KEY=GROQ_API_KEY
+                    )
+                    os.remove(audio_path)
+                    if text_input:
+                        st.success(f"✅ Audio transcribed: {text_input[:100]}...")
+                
+                # Image input handling
+                image_base64 = None
+                if image_input is not None:
+                    temp_image = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(image_input.name)[-1])
+                    temp_image.write(image_input.read())
+                    temp_image.close()
+                    image_base64 = encode_image(temp_image.name)
+                    os.remove(temp_image.name)
+                    st.success("🖼️ Image processed successfully")
+                
+                # Diagnosis logic
+                diagnosis = None
+                prescription = None
+                audio_filepath = None
+                language_code = LANGUAGE_CODES.get(response_language, "en")
+                
+                if text_input and not image_base64:
+                    st.info("🧠 Analyzing text input...")
+                    diagnosis = analyze_text_query(text_input, response_language)
+                    prescription = generate_prescription(diagnosis, response_language)
+                elif image_base64:
+                    st.info("🧠 Analyzing image...")
+                    diagnosis = analyze_image_with_query(text_input or "Analyze this skin condition", image_base64, response_language)
+                    prescription = generate_prescription(diagnosis, response_language)
+                
+                # Audio diagnosis (first sentence only)
+                audio_bytes = None
+                if diagnosis:
+                    short_diagnosis = diagnosis.split('.')[0] + '.' if '.' in diagnosis else diagnosis
                     try:
-                        tts = gTTS(text=diagnosis, lang="en")
+                        tts = gTTS(text=short_diagnosis, lang=language_code)
                         audio_bytes_io = io.BytesIO()
                         tts.write_to_fp(audio_bytes_io)
                         audio_bytes = audio_bytes_io.getvalue()
+                        st.success("🎧 Audio generated successfully")
                     except Exception as e:
-                        st.error(f"Audio generation failed in English too: {e}")
-        # Output UI
-        st.markdown("---")
-        st.markdown("## 📋 Diagnosis Results")
-        st.markdown("<div class='section-title'>Your Input Summary</div>", unsafe_allow_html=True)
-        st.text_area("", value=text_input or "Image analysis", height=70, disabled=True)
-        st.markdown("<div class='section-title'>🩺 Detailed Diagnosis</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='diagnosis-card'>{diagnosis or ''}</div>", unsafe_allow_html=True)
-        st.markdown("<div class='section-title'>💊 Prescription</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='prescription-card'>{prescription or ''}</div>", unsafe_allow_html=True)
-        st.markdown("<div class='section-title'>🎧 Audio Diagnosis</div>", unsafe_allow_html=True)
-        if audio_bytes:
-            st.audio(audio_bytes, format="audio/mp3")
-        else:
-            st.info("No audio available.") 
+                        st.warning(f"Audio generation failed: {e}")
+                
+                # Output UI
+                st.markdown("---")
+                st.markdown("## 📋 Diagnosis Results")
+                st.markdown("<div class='section-title'>Your Input Summary</div>", unsafe_allow_html=True)
+                st.text_area("Input Summary", value=str(text_input) if text_input else "Image analysis", height=80, disabled=True, label_visibility="collapsed")
+                st.markdown("<div class='section-title'>🩺 Detailed Diagnosis</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='diagnosis-card'>{diagnosis or ''}</div>", unsafe_allow_html=True)
+                st.markdown("<div class='section-title'>💊 Prescription</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='prescription-card'>{prescription or ''}</div>", unsafe_allow_html=True)
+                st.markdown("<div class='section-title'>🎧 Audio Diagnosis</div>", unsafe_allow_html=True)
+                if audio_bytes:
+                    st.audio(audio_bytes, format="audio/mp3")
+                else:
+                    st.info("No audio available.")
+                    
+            except Exception as e:
+                st.error(f"❌ Error during processing: {str(e)}")
+                st.error("Please check your API key in Streamlit secrets and try again.") 
