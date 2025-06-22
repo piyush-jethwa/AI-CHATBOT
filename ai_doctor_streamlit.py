@@ -20,6 +20,19 @@ from gtts import gTTS
 import base64
 import io
 
+@st.cache_data
+def generate_audio_from_text(text, lang):
+    """Generates audio from text using gTTS and caches the result."""
+    try:
+        tts = gTTS(text=text, lang=lang)
+        audio_bytes_io = io.BytesIO()
+        tts.write_to_fp(audio_bytes_io)
+        audio_bytes_io.seek(0)
+        return audio_bytes_io.getvalue()
+    except Exception as e:
+        st.warning(f"Audio generation failed: {e}")
+        return None
+
 # Try to get API key from Streamlit secrets first, then environment variables
 try:
     GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
@@ -139,14 +152,9 @@ if submit_btn:
                 audio_bytes = None
                 if diagnosis and prescription:
                     full_text_for_audio = f"Diagnosis: {diagnosis}. Prescription: {prescription}"
-                    try:
-                        tts = gTTS(text=full_text_for_audio, lang=language_code)
-                        audio_bytes_io = io.BytesIO()
-                        tts.write_to_fp(audio_bytes_io)
-                        audio_bytes = audio_bytes_io.getvalue()
+                    audio_bytes = generate_audio_from_text(full_text_for_audio, language_code)
+                    if audio_bytes:
                         st.success("🎧 Audio generated successfully")
-                    except Exception as e:
-                        st.warning(f"Audio generation failed: {e}")
                 
                 # Output UI
                 st.markdown("---")
