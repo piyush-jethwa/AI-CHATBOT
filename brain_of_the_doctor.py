@@ -230,44 +230,60 @@ def analyze_image_with_query(query, encoded_image, language="English", model="ll
         
         # Language-specific prompts with detailed instructions
         prompts = {
-            "English": """You are a medical expert. Please provide a complete diagnosis in English.
+            "English": """You are a medical expert. A patient has uploaded an image of their skin condition and provided the following description. 
+            Please analyze their symptoms and provide a comprehensive diagnosis.
+            
             Include:
-            1. Detailed analysis of visible symptoms
-            2. Possible conditions
+            1. Detailed analysis of described symptoms
+            2. Possible conditions based on their description
             3. Recommended treatments
             4. Lifestyle recommendations
             5. Follow-up advice
             
             Format your response in clear sections with proper medical terminology.
+            Note: This analysis is based on the patient's description. For more accurate diagnosis, please consult a healthcare professional.
             Patient's description: """,
             
-            "Hindi": """आप एक चिकित्सा विशेषज्ञ हैं। कृपया पूरा निदान हिंदी में प्रदान करें।
+            "Hindi": """आप एक चिकित्सा विशेषज्ञ हैं। एक रोगी ने अपनी त्वचा की स्थिति की तस्वीर अपलोड की है और निम्नलिखित विवरण प्रदान किया है।
+            कृपया उनके लक्षणों का विश्लेषण करें और एक व्यापक निदान प्रदान करें।
+            
             इसमें शामिल करें:
-            1. दृश्य लक्षणों का विस्तृत विश्लेषण
-            2. संभावित स्थितियां
+            1. वर्णित लक्षणों का विस्तृत विश्लेषण
+            2. उनके विवरण के आधार पर संभावित स्थितियां
             3. अनुशंसित उपचार
             4. जीवनशैली की सिफारिशें
             5. फॉलो-अप सलाह
             
             अपना उत्तर स्पष्ट खंडों में प्रारूपित करें और उचित चिकित्सा शब्दावली का उपयोग करें।
+            नोट: यह विश्लेषण रोगी के विवरण के आधार पर है। अधिक सटीक निदान के लिए, कृपया एक स्वास्थ्य देखभाल पेशेवर से परामर्श करें।
             रोगी का विवरण: """,
             
-            "Marathi": """तुम्ही एक वैद्यकीय तज्ज्ञ आहात. कृपया पूर्ण निदान मराठीमध्ये द्या.
+            "Marathi": """तुम्ही एक वैद्यकीय तज्ज्ञ आहात. एक रुग्णाने त्यांच्या त्वचेच्या स्थितीचे चित्र अपलोड केले आहे आणि खालील वर्णन प्रदान केले आहे.
+            कृपया त्यांच्या लक्षणांचे विश्लेषण करा आणि एक व्यापक निदान द्या.
+            
             यामध्ये समाविष्ट करा:
-            1. दृश्य लक्षणांचे तपशीलवार विश्लेषण
-            2. संभाव्य स्थिती
+            1. वर्णन केलेल्या लक्षणांचे तपशीलवार विश्लेषण
+            2. त्यांच्या वर्णनावर आधारित संभाव्य स्थिती
             3. शिफारस केलेले उपचार
             4. जीवनशैली शिफारसी
             5. पुन्हा तपासणी सल्ला
             
             तुमचे उत्तर स्पष्ट विभागांमध्ये फॉर्मॅट करा आणि योग्य वैद्यकीय शब्दावली वापरा.
+            टीप: हे विश्लेषण रुग्णाच्या वर्णनावर आधारित आहे. अधिक अचूक निदानासाठी, कृपया वैद्यकीय व्यावसायिकांशी सल्लामसलत करा.
             रुग्णाचे वर्णन: """
         }
         
         # Get the appropriate prompt for the language
         prompt = prompts.get(language, prompts["English"])
         
-        # Prepare the message with image
+        # Create enhanced query that includes image context
+        enhanced_query = f"""Patient has uploaded an image of their skin condition and reports: {query}
+        
+        Please provide a detailed medical analysis based on their description. Consider common skin conditions that match their symptoms.
+        
+        Focus on providing helpful medical guidance while noting that this is based on their description and not a direct visual analysis."""
+        
+        # Prepare the message (text-only since vision is not supported)
         messages = [
             {
                 "role": "system",
@@ -275,15 +291,7 @@ def analyze_image_with_query(query, encoded_image, language="English", model="ll
             },
             {
                 "role": "user",
-                "content": [
-                    {"type": "text", "text": query},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{encoded_image}"
-                        }
-                    }
-                ]
+                "content": enhanced_query
             }
         ]
         
@@ -297,7 +305,15 @@ def analyze_image_with_query(query, encoded_image, language="English", model="ll
         
         # Extract and return the response
         diagnosis = response.choices[0].message.content.strip()
-        return diagnosis
+        
+        # Add a note about the analysis method
+        note = {
+            "English": "\n\nNote: This analysis is based on your description. For more accurate diagnosis, please consult a healthcare professional.",
+            "Hindi": "\n\nनोट: यह विश्लेषण आपके विवरण के आधार पर है। अधिक सटीक निदान के लिए, कृपया एक स्वास्थ्य देखभाल पेशेवर से परामर्श करें।",
+            "Marathi": "\n\nटीप: हे विश्लेषण तुमच्या वर्णनावर आधारित आहे. अधिक अचूक निदानासाठी, कृपया वैद्यकीय व्यावसायिकांशी सल्लामसलत करा."
+        }
+        
+        return diagnosis + note.get(language, note["English"])
         
     except Exception as e:
         print(f"Error in analyze_image_with_query: {str(e)}")
