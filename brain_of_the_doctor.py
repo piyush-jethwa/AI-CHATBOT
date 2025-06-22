@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 import sys
 import base64
@@ -8,20 +11,16 @@ import tempfile
 from functools import lru_cache
 from groq import Groq, GroqError
 
-try:
-    from dotenv import load_dotenv
-    import streamlit as st
-    # Load variables from .env (only used in local development)
-    load_dotenv()
-    
-    # First try to get from .env, then from Streamlit secrets
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY") or st.secrets["GROQ_API_KEY"]
-except ImportError:
-    print("Warning: python-dotenv not installed. Environment variables must be set manually.")
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-except Exception as e:
-    print(f"Warning: Could not load .env file: {e}. Environment variables must be set manually.")
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# Try to get API key from environment variables first
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
+def get_api_key():
+    """Get API key from Streamlit secrets or environment variables"""
+    try:
+        import streamlit as st
+        return st.secrets["GROQ_API_KEY"]
+    except (ImportError, KeyError, AttributeError):
+        return os.environ.get("GROQ_API_KEY")
 
 def test_api_key(api_key):
     """Test if the provided API key is valid by making a minimal request"""
@@ -95,72 +94,70 @@ Doctor: AI Doctor
 """
 
 def generate_prescription(diagnosis, language="English"):
-    """Generate a prescription based on diagnosis"""
+    """Generate a prescription based on diagnosis."""
     from datetime import datetime
-    
-    # Validate diagnosis parameter
+
     if not diagnosis or not isinstance(diagnosis, str):
         raise ValueError("Diagnosis must be a non-empty string")
-    
-    # Expanded medication mapping with detailed instructions in multiple languages
+
+    # Clean up the diagnosis string to get the primary condition
+    # Example: "DIAGNOSIS:\n- Condition identified: Dandruff" -> "Dandruff"
+    primary_diagnosis = diagnosis.splitlines()
+    for line in primary_diagnosis:
+        if "condition identified" in line.lower():
+            primary_diagnosis = line.split(":")[-1].strip()
+            break
+    else:
+        # If the specific line isn't found, use the first non-empty line
+        primary_diagnosis = next((line for line in diagnosis.splitlines() if line.strip()), diagnosis)
+
+
     meds_map = {
         "Dandruff": {
             "English": {
-                "medications": [
-                    "Ketoconazole 2% shampoo",
-                    "Selenium sulfide 2.5% shampoo",
-                    "Zinc pyrithione 1% shampoo"
-                ],
-                "instructions": [
-                    "Use medicated shampoo twice weekly",
-                    "Leave shampoo on scalp for 5-10 minutes before rinsing",
-                    "Avoid scratching the scalp",
-                    "Use gentle, fragrance-free hair products"
-                ],
-                "follow_up": "Follow up in 2 weeks if condition persists"
+                "medications": ["Ketoconazole 2% shampoo", "Selenium sulfide 2.5% shampoo"],
+                "instructions": ["Use medicated shampoo twice weekly.", "Leave on scalp for 5-10 minutes."],
+                "follow_up": "Follow up in 2 weeks if condition persists.",
             },
             "Hindi": {
-                "medications": [
-                    "कीटोकोनाज़ोल 2% शैम्पू",
-                    "सेलेनियम सल्फाइड 2.5% शैम्पू",
-                    "जिंक पायरिथियोन 1% शैम्पू"
-                ],
-                "instructions": [
-                    "सप्ताह में दो बार मेडिकेटेड शैम्पू का उपयोग करें",
-                    "रिंस करने से पहले 5-10 मिनट तक शैम्पू को स्कैल्प पर छोड़ दें",
-                    "स्कैल्प को खरोंचने से बचें",
-                    "हल्के, सुगंध-मुक्त हेयर प्रोडक्ट्स का उपयोग करें"
-                ],
-                "follow_up": "यदि स्थिति बनी रहती है तो 2 सप्ताह में फॉलो-अप करें"
+                "medications": ["कीटोकोनाज़ोल 2% शैम्पू", "सेलेनियम सल्फाइड 2.5% शैम्पू"],
+                "instructions": ["सप्ताह में दो बार मेडिकेटेड शैम्पू का उपयोग करें।", "5-10 मिनट तक स्कैल्प पर लगा रहने दें।"],
+                "follow_up": "यदि स्थिति बनी रहती है तो 2 सप्ताह में फॉलो-अप करें।",
             },
             "Marathi": {
-                "medications": [
-                    "कीटोकोनाज़ोल 2% शॅम्पू",
-                    "सेलेनियम सल्फाइड 2.5% शॅम्पू",
-                    "जिंक पायरिथियोन 1% शॅम्पू"
-                ],
-                "instructions": [
-                    "आठवड्यातून दोनदा औषधी शॅम्पू वापरा",
-                    "धुण्याआधी 5-10 मिनिटे शॅम्पू डोक्यावर ठेवा",
-                    "डोक्यावर खाजवू नका",
-                    "हलके, सुगंध-मुक्त केसांचे उत्पादने वापरा"
-                ],
-                "follow_up": "जर स्थिती टिकून राहिली तर 2 आठवड्यांनी पुन्हा तपासणी करा"
-            }
+                "medications": ["कीटोकोनाझोल २% शाम्पू", "सेलेनियम सल्फाइड २.५% शाम्पू"],
+                "instructions": ["आठवड्यातून दोनदा औषधी शाम्पू वापरावा.", "५-१० मिनिटे स्कॅल्पवर ठेवा."],
+                "follow_up": "स्थिती कायम राहिल्यास २ आठवड्यांनी पुन्हा संपर्क साधा.",
+            },
         }
     }
     
-    # Get current date
+    # Multilingual fallback messages
+    fallback_treatment = {
+        "English": {
+            "medications": ["No specific medication found for this diagnosis."],
+            "instructions": ["Please consult a healthcare professional for a personalized treatment plan."],
+            "follow_up": "Follow up with a doctor as soon as possible.",
+        },
+        "Hindi": {
+            "medications": ["इस निदान के लिए कोई विशिष्ट दवा नहीं मिली।"],
+            "instructions": ["व्यक्तिगत उपचार योजना के लिए कृपया किसी स्वास्थ्य देखभाल पेशेवर से परामर्श लें।"],
+            "follow_up": "यथाशीघ्र डॉक्टर से संपर्क करें।",
+        },
+        "Marathi": {
+            "medications": ["या निदानासाठी कोणतेही विशिष्ट औषध सापडले नाही."],
+            "instructions": ["वैयक्तिकृत उपचार योजनेसाठी कृपया आरोग्यसेवा व्यावसायिकाचा सल्ला घ्या."],
+            "follow_up": "शक्य तितक्या लवकर डॉक्टरांशी संपर्क साधा.",
+        },
+    }
+
     date = datetime.now().strftime("%d/%m/%Y")
     
-    # Get appropriate medication based on language
-    treatment = meds_map.get(diagnosis, {}).get(language, {
-        "medications": ["Consult doctor for proper medication"],
-        "instructions": ["Follow doctor's advice"],
-        "follow_up": "Follow up as recommended by doctor"
-    })
-    
-    # Language-specific prescription templates
+    # Find treatment for the primary diagnosis, or use the multilingual fallback
+    treatment_options = meds_map.get(primary_diagnosis, fallback_treatment)
+    treatment = treatment_options.get(language, treatment_options.get("English"))
+
+
     templates = {
         "English": """
 PRESCRIPTION
@@ -192,7 +189,7 @@ Doctor: AI Doctor
 
 फॉलो-अप: {follow_up}
 
-डॉक्टर: AI डॉक्टर
+डॉक्टर: AI Doctor
 """,
         "Marathi": """
 औषधोपचार
@@ -208,103 +205,157 @@ Doctor: AI Doctor
 
 पुन्हा तपासणी: {follow_up}
 
-डॉक्टर: AI डॉक्टर
+डॉक्टर: AI Doctor
 """
     }
-    
+
     template = templates.get(language, templates["English"])
-    
+
     return template.format(
         date=date,
-        diagnosis=diagnosis,
+        diagnosis=diagnosis, # Keep the full original diagnosis for display
         medications="\n".join(f"- {med}" for med in treatment["medications"]),
         instructions="\n".join(f"- {inst}" for inst in treatment["instructions"]),
-        follow_up=treatment["follow_up"]
+        follow_up=treatment["follow_up"],
     )
 
 @lru_cache(maxsize=100)
 def analyze_image_with_query(query, encoded_image, language="English", model="llama3-8b-8192"):
-    """Analyze image with query using Groq"""
-    try:
-        client = Groq(api_key=GROQ_API_KEY)
+    """Analyze image with text query using GROQ's vision model with caching"""
+    import logging
+    if not query or not encoded_image:
+        logging.error("Missing required parameters for analyze_image_with_query")
+        return "Error: Missing required parameters for image analysis."
         
-        # Language-specific prompts with detailed instructions
-        prompts = {
-            "English": """You are a medical expert. A patient has uploaded an image of their skin condition and provided the following description. 
-            Please analyze their symptoms and provide a comprehensive diagnosis.
-            
-            Include:
-            1. Detailed analysis of described symptoms
-            2. Possible conditions based on their description
-            3. Recommended treatments
-            4. Lifestyle recommendations
-            5. Follow-up advice
-            
-            Format your response in clear sections with proper medical terminology.
-            Note: This analysis is based on the patient's description. For more accurate diagnosis, please consult a healthcare professional.
-            Patient's description: """,
-            
-            "Hindi": """आप एक चिकित्सा विशेषज्ञ हैं। एक रोगी ने अपनी त्वचा की स्थिति की तस्वीर अपलोड की है और निम्नलिखित विवरण प्रदान किया है।
-            कृपया उनके लक्षणों का विश्लेषण करें और एक व्यापक निदान प्रदान करें।
-            
-            इसमें शामिल करें:
-            1. वर्णित लक्षणों का विस्तृत विश्लेषण
-            2. उनके विवरण के आधार पर संभावित स्थितियां
-            3. अनुशंसित उपचार
-            4. जीवनशैली की सिफारिशें
-            5. फॉलो-अप सलाह
-            
-            अपना उत्तर स्पष्ट खंडों में प्रारूपित करें और उचित चिकित्सा शब्दावली का उपयोग करें।
-            नोट: यह विश्लेषण रोगी के विवरण के आधार पर है। अधिक सटीक निदान के लिए, कृपया एक स्वास्थ्य देखभाल पेशेवर से परामर्श करें।
-            रोगी का विवरण: """,
-            
-            "Marathi": """तुम्ही एक वैद्यकीय तज्ज्ञ आहात. एक रुग्णाने त्यांच्या त्वचेच्या स्थितीचे चित्र अपलोड केले आहे आणि खालील वर्णन प्रदान केले आहे.
-            कृपया त्यांच्या लक्षणांचे विश्लेषण करा आणि एक व्यापक निदान द्या.
-            
-            यामध्ये समाविष्ट करा:
-            1. वर्णन केलेल्या लक्षणांचे तपशीलवार विश्लेषण
-            2. त्यांच्या वर्णनावर आधारित संभाव्य स्थिती
-            3. शिफारस केलेले उपचार
-            4. जीवनशैली शिफारसी
-            5. पुन्हा तपासणी सल्ला
-            
-            तुमचे उत्तर स्पष्ट विभागांमध्ये फॉर्मॅट करा आणि योग्य वैद्यकीय शब्दावली वापरा.
-            टीप: हे विश्लेषण रुग्णाच्या वर्णनावर आधारित आहे. अधिक अचूक निदानासाठी, कृपया वैद्यकीय व्यावसायिकांशी सल्लामसलत करा.
-            रुग्णाचे वर्णन: """
+    client = Groq(api_key=get_api_key())
+    
+    # Since llama3-8b-8192 doesn't support vision, we'll analyze the text query
+    # and provide guidance based on the image context
+    logging.info("Vision model not available, falling back to text analysis with image context")
+    
+    # Language-specific prompts for image-based analysis
+    language_prompts = {
+        "English": """You are a dermatology specialist AI assistant. A patient has uploaded an image of their skin condition and provided the following description. 
+        Please analyze their symptoms and provide a comprehensive diagnosis.
+        
+        For skin conditions like dandruff, look for these symptoms in their description:
+        1. White or yellowish flakes on the scalp
+        2. Itchy scalp
+        3. Dry or oily scalp
+        4. Redness or inflammation
+        5. Any visible skin changes or rashes
+        
+        Provide your analysis in this format:
+        
+        DIAGNOSIS:
+        - Condition identified (based on described symptoms)
+        - Severity level (Mild/Moderate/Severe)
+        - Key symptoms mentioned
+        
+        RECOMMENDATIONS:
+        - Immediate care steps
+        - Lifestyle changes
+        - Products to use/avoid
+        
+        PRESCRIPTION:
+        - Specific medications or treatments
+        - Application instructions
+        - Follow-up timeline
+        
+        Note: This analysis is based on the patient's description. For more accurate diagnosis, please consult a healthcare professional.""",
+        
+        "Hindi": """आप एक त्वचा विशेषज्ञ AI सहायक हैं। एक रोगी ने अपनी त्वचा की स्थिति की तस्वीर अपलोड की है और निम्नलिखित विवरण प्रदान किया है।
+        कृपया उनके लक्षणों का विश्लेषण करें और एक व्यापक निदान प्रदान करें।
+        
+        रूसी जैसी त्वचा की स्थितियों के लिए, उनके विवरण में इन लक्षणों को देखें:
+        1. स्कैल्प पर सफेद या पीले रंग के फ्लेक्स
+        2. खुजली वाला स्कैल्प
+        3. सूखा या तैलीय स्कैल्प
+        4. लालिमा या सूजन
+        5. कोई दृश्य त्वचा परिवर्तन या चकत्ते
+        
+        अपना विश्लेषण इस प्रारूप में प्रदान करें:
+        
+        निदान:
+        - पहचानी गई स्थिति (वर्णित लक्षणों के आधार पर)
+        - गंभीरता स्तर (हल्का/मध्यम/गंभीर)
+        - मुख्य लक्षण
+        
+        सिफारिशें:
+        - तत्काल देखभाल के कदम
+        - जीवनशैली में परिवर्तन
+        - उपयोग करने/बचने के उत्पाद
+        
+        नुस्खा:
+        - विशिष्ट दवाएं या उपचार
+        - अनुप्रयोग निर्देश
+        - फॉलो-अप समयरेखा
+        
+        नोट: यह विश्लेषण रोगी के विवरण के आधार पर है। अधिक सटीक निदान के लिए, कृपया एक स्वास्थ्य देखभाल पेशेवर से परामर्श करें।""",
+        
+        "Marathi": """तुम्ही एक त्वचारोग तज्ज्ञ AI सहाय्यक आहात. एक रुग्णाने त्यांच्या त्वचेच्या स्थितीचे चित्र अपलोड केले आहे आणि खालील वर्णन प्रदान केले आहे.
+        कृपया त्यांच्या लक्षणांचे विश्लेषण करा आणि एक व्यापक निदान द्या.
+        
+        कोंड्यासारख्या त्वचेच्या स्थितींसाठी, त्यांच्या वर्णनात या लक्षणे शोधा:
+        1. डोक्यावर पांढरे किंवा पिवळे फ्लेक्स
+        2. खाज सुटणारे डोके
+        3. कोरडे किंवा तैलयुक्त डोके
+        4. लालसरपणा किंवा सूज
+        5. कोणतेही दृश्य त्वचा बदल किंवा पुरळ
+        
+        तुमचे विश्लेषण या स्वरूपात द्या:
+        
+        निदान:
+        - ओळखलेली स्थिती (वर्णन केलेल्या लक्षणांच्या आधारे)
+        - गंभीरता पातळी (हलकी/मध्यम/गंभीर)
+        - मुख्य लक्षणे
+        
+        शिफारसी:
+        - त्वरित काळजीचे पावले
+        - जीवनशैली बदल
+        - वापरण्यासाठी/टाळण्यासाठी उत्पादने
+        
+        औषधोपचार:
+        - विशिष्ट औषधे किंवा उपचार
+        - वापरण्याच्या सूचना
+        - पुन्हा तपासणी वेळ
+        
+        टीप: हे विश्लेषण रुग्णाच्या वर्णनावर आधारित आहे. अधिक अचूक निदानासाठी, कृपया वैद्यकीय व्यावसायिकांशी सल्लामसलत करा."""
+    }
+    
+    # Get the appropriate prompt for the selected language
+    system_prompt = language_prompts.get(language, language_prompts["English"])
+    
+    # Create a comprehensive query that includes image context
+    enhanced_query = f"""Patient has uploaded an image of their skin condition and reports: {query}
+    
+    Please provide a detailed medical analysis based on their description. Consider common skin conditions that match their symptoms.
+    
+    Focus on providing helpful medical guidance while noting that this is based on their description and not a direct visual analysis."""
+    
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt
+        },
+        {
+            "role": "user",
+            "content": enhanced_query
         }
-        
-        # Get the appropriate prompt for the language
-        prompt = prompts.get(language, prompts["English"])
-        
-        # Create enhanced query that includes image context
-        enhanced_query = f"""Patient has uploaded an image of their skin condition and reports: {query}
-        
-        Please provide a detailed medical analysis based on their description. Consider common skin conditions that match their symptoms.
-        
-        Focus on providing helpful medical guidance while noting that this is based on their description and not a direct visual analysis."""
-        
-        # Prepare the message (text-only since vision is not supported)
-        messages = [
-            {
-                "role": "system",
-                "content": prompt
-            },
-            {
-                "role": "user",
-                "content": enhanced_query
-            }
-        ]
-        
-        # Make the API call
+    ]
+    
+    try:
         response = client.chat.completions.create(
-            model=model,
             messages=messages,
-            temperature=0.7,
-            max_tokens=1500  # Increased for longer responses
+            model=model,
+            max_tokens=800
         )
-        
-        # Extract and return the response
-        diagnosis = response.choices[0].message.content.strip()
+        content = response.choices[0].message.content
+        if not isinstance(content, str):
+            content = str(content)
+        if not content.strip():
+            logging.error("Empty response content from analyze_image_with_query")
+            return "Error: Empty response from image analysis."
         
         # Add a note about the analysis method
         note = {
@@ -313,11 +364,39 @@ def analyze_image_with_query(query, encoded_image, language="English", model="ll
             "Marathi": "\n\nटीप: हे विश्लेषण तुमच्या वर्णनावर आधारित आहे. अधिक अचूक निदानासाठी, कृपया वैद्यकीय व्यावसायिकांशी सल्लामसलत करा."
         }
         
-        return diagnosis + note.get(language, note["English"])
+        return content + note.get(language, note["English"])
         
     except Exception as e:
-        print(f"Error in analyze_image_with_query: {str(e)}")
+        logging.error(f"Vision analysis failed: {str(e)}")
+        if "model_not_found" in str(e):
+            return analyze_text_query(query, language)
         return f"Vision analysis failed: {str(e)}"
+
+# Validate GROQ API key
+if not GROQ_API_KEY:
+    error_msg = """
+    ERROR: GROQ_API_KEY not found. Please make sure it's set in:
+    1. Streamlit secrets (for deployment) - st.secrets["GROQ_API_KEY"]
+    2. Environment variables (for local development) - GROQ_API_KEY
+    3. .env file (for local development) - GROQ_API_KEY=your_key_here
+    
+    You can get an API key from: https://console.groq.com/
+    """
+    print(error_msg)
+    # Don't exit in Streamlit environment, just show error
+    if 'streamlit' not in sys.modules:
+        sys.exit(1)
+else:
+    print(f"🔑 API Key Status: Found (Length: {len(GROQ_API_KEY)} characters)")
+    if GROQ_API_KEY.startswith("gsk_"):
+        print("✅ API Key format looks correct (starts with 'gsk_')")
+        # Test the API key
+        if test_api_key(GROQ_API_KEY):
+            print("✅ API Key is valid and working!")
+        else:
+            print("❌ API Key test failed - key may be invalid or expired")
+    else:
+        print("⚠️ API Key format may be incorrect (should start with 'gsk_')")
 
 def analyze_image(image_path):
     """Analyze image using computer vision"""
@@ -330,70 +409,62 @@ def analyze_image(image_path):
 
 @lru_cache(maxsize=100)
 def analyze_text_query(query, language="English", model="llama3-8b-8192", max_retries=3):
-    """Analyze text query using Groq"""
-    try:
-        client = Groq(api_key=GROQ_API_KEY)
+    """Process text queries with GROQ API with caching"""
+    import logging
+    if not query or not isinstance(query, str):
+        logging.error("Invalid query parameter for analyze_text_query")
+        return "Error: Invalid query parameter."
         
-        # Language-specific prompts with detailed instructions
-        prompts = {
-            "English": """You are a medical expert. Please provide a complete diagnosis in English.
-            Include:
-            1. Detailed analysis of symptoms
-            2. Possible conditions
-            3. Recommended treatments
-            4. Lifestyle recommendations
-            5. Follow-up advice
+    client = Groq(api_key=get_api_key())
+    
+    # Language-specific prompts
+    language_prompts = {
+        "English": "You are a medical specialist. Analyze the following symptoms and provide a diagnosis in English:",
+        "Hindi": "आप एक चिकित्सा विशेषज्ञ हैं। कृपया उत्तर हिंदी में दें। निम्नलिखित लक्षणों का विश्लेषण करें और हिंदी में निदान प्रदान करें:",
+        "Marathi": "तुम्ही एक वैद्यकीय तज्ज्ञ आहात. कृपया उत्तर मराठीत द्या. खालील लक्षणांचे विश्लेषण करा आणि मराठीमध्ये निदान द्या:"
+    }
+    
+    # Get the appropriate prompt for the selected language
+    system_prompt = language_prompts.get(language, language_prompts["English"])
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": query}
+    ]
+
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                messages=messages,
+                model=model,
+                max_tokens=800
+            )
             
-            Format your response in clear sections with proper medical terminology.
-            Patient's symptoms: """,
+            if not response.choices:
+                logging.error("Empty response from API in analyze_text_query")
+                return "Error: Empty response from text analysis."
+                
+            content = response.choices[0].message.content
+            print("MODEL RAW OUTPUT:", repr(content))
+            if not isinstance(content, str):
+                content = str(content)
+            if not content.strip():
+                logging.error("Empty content string from analyze_text_query")
+                return "Error: Empty content from text analysis."
+            return content
             
-            "Hindi": """आप एक चिकित्सा विशेषज्ञ हैं। कृपया पूरा निदान हिंदी में प्रदान करें।
-            इसमें शामिल करें:
-            1. लक्षणों का विस्तृत विश्लेषण
-            2. संभावित स्थितियां
-            3. अनुशंसित उपचार
-            4. जीवनशैली की सिफारिशें
-            5. फॉलो-अप सलाह
+        except GroqError as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                time.sleep(1 * (attempt + 1))  # Exponential backoff
+                continue
+            logging.error(f"API request failed after {max_retries} attempts: {str(e)}")
+            return f"Text analysis failed: {str(e)}"
             
-            अपना उत्तर स्पष्ट खंडों में प्रारूपित करें और उचित चिकित्सा शब्दावली का उपयोग करें।
-            रोगी के लक्षण: """,
-            
-            "Marathi": """तुम्ही एक वैद्यकीय तज्ज्ञ आहात. कृपया पूर्ण निदान मराठीमध्ये द्या.
-            यामध्ये समाविष्ट करा:
-            1. लक्षणांचे तपशीलवार विश्लेषण
-            2. संभाव्य स्थिती
-            3. शिफारस केलेले उपचार
-            4. जीवनशैली शिफारसी
-            5. पुन्हा तपासणी सल्ला
-            
-            तुमचे उत्तर स्पष्ट विभागांमध्ये फॉर्मॅट करा आणि योग्य वैद्यकीय शब्दावली वापरा.
-            रुग्णाचे वर्णन: """
-        }
-        
-        # Get the appropriate prompt for the language
-        prompt = prompts.get(language, prompts["English"])
-        
-        # Prepare the message
-        messages = [
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": query}
-        ]
-        
-        # Make the API call
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=0.7,
-            max_tokens=1500  # Increased for longer responses
-        )
-        
-        # Extract and return the response
-        diagnosis = response.choices[0].message.content.strip()
-        return diagnosis
-        
-    except Exception as e:
-        print(f"Error in analyze_text_query: {str(e)}")
-        return f"Analysis failed: {str(e)}"
+        except Exception as e:
+            logging.error(f"Analysis failed: {str(e)}")
+            return f"Text analysis failed: {str(e)}"
 
 if __name__ == "__main__":
     os.system("python D:\\EDIT KAREGE\\ai-doctor-2.0-voice-and-vision\\ai-doctor-2.0-voice-and-vision\\ai_doctor_fully_fixed.py")
