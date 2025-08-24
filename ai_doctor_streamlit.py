@@ -1,6 +1,10 @@
 import os
 import tempfile
 import streamlit as st
+
+# Set page config must be the first Streamlit command
+st.set_page_config(page_title="VAIDYA - Medical Diagnosis", layout="wide")
+
 from brain_of_the_doctor import (
     encode_image,
     analyze_image_with_query,
@@ -33,16 +37,8 @@ def generate_audio_from_text(text, lang):
         st.warning(f"Audio generation failed: {e}")
         return None
 
-# Try to get API key from Streamlit secrets first, then environment variables
-try:
-    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-    st.success("✅ API key retrieved from Streamlit secrets")
-except (KeyError, AttributeError) as e:
-    GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-    if GROQ_API_KEY:
-        st.success("✅ API key retrieved from environment variables")
-    else:
-        st.error("❌ No API key found! Please add GROQ_API_KEY to Streamlit secrets.")
+# Get API key from environment variables (for Streamlit deployment)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 # Debug: Show API key status (without revealing the key)
 if GROQ_API_KEY:
@@ -52,15 +48,13 @@ if GROQ_API_KEY:
     else:
         st.warning("⚠️ API Key format may be incorrect (should start with 'gsk_')")
 else:
-    st.error("❌ No API key available!")
+    st.error("❌ No API key found! Please set GROQ_API_KEY environment variable in Streamlit deployment settings.")
 
 LANGUAGE_CODES = {
     "English": "en",
     "Hindi": "hi",
     "Marathi": "mr"
 }
-
-st.set_page_config(page_title="VAIDYA - Medical Diagnosis", layout="wide")
 st.markdown("""
 <style>
     .block-container {padding-top: 1rem; padding-bottom: 1rem;}
@@ -173,4 +167,4 @@ if submit_btn:
                     
             except Exception as e:
                 st.error(f"❌ Error during processing: {str(e)}")
-                st.error("Please check your API key in Streamlit secrets and try again.") 
+                st.error("Please check your GROQ_API_KEY environment variable and try again.")
