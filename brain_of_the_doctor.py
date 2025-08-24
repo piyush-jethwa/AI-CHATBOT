@@ -93,70 +93,107 @@ Instructions:
 Doctor: AI Doctor
 """
 
+import random
+
 def generate_prescription(diagnosis, language="English"):
-    """Generate a prescription based on diagnosis."""
+    """Generate a prescription based on diagnosis using AI to suggest medications."""
     from datetime import datetime
 
     if not diagnosis or not isinstance(diagnosis, str):
         raise ValueError("Diagnosis must be a non-empty string")
 
-    # Clean up the diagnosis string to get the primary condition
-    # Example: "DIAGNOSIS:\n- Condition identified: Dandruff" -> "Dandruff"
-    primary_diagnosis = diagnosis.splitlines()
-    for line in primary_diagnosis:
-        if "condition identified" in line.lower():
-            primary_diagnosis = line.split(":")[-1].strip()
-            break
-    else:
-        # If the specific line isn't found, use the first non-empty line
-        primary_diagnosis = next((line for line in diagnosis.splitlines() if line.strip()), diagnosis)
-
-
-    meds_map = {
-        "Dandruff": {
-            "English": {
-                "medications": ["Ketoconazole 2% shampoo", "Selenium sulfide 2.5% shampoo"],
-                "instructions": ["Use medicated shampoo twice weekly.", "Leave on scalp for 5-10 minutes."],
-                "follow_up": "Follow up in 2 weeks if condition persists.",
-            },
-            "Hindi": {
-                "medications": ["कीटोकोनाज़ोल 2% शैम्पू", "सेलेनियम सल्फाइड 2.5% शैम्पू"],
-                "instructions": ["सप्ताह में दो बार मेडिकेटेड शैम्पू का उपयोग करें।", "5-10 मिनट तक स्कैल्प पर लगा रहने दें।"],
-                "follow_up": "यदि स्थिति बनी रहती है तो 2 सप्ताह में फॉलो-अप करें।",
-            },
-            "Marathi": {
-                "medications": ["कीटोकोनाझोल २% शाम्पू", "सेलेनियम सल्फाइड २.५% शाम्पू"],
-                "instructions": ["आठवड्यातून दोनदा औषधी शाम्पू वापरावा.", "५-१० मिनिटे स्कॅल्पवर ठेवा."],
-                "follow_up": "स्थिती कायम राहिल्यास २ आठवड्यांनी पुन्हा संपर्क साधा.",
-            },
-        }
-    }
-    
-    # Multilingual fallback messages
-    fallback_treatment = {
-        "English": {
-            "medications": ["No specific medication found for this diagnosis."],
-            "instructions": ["Please consult a healthcare professional for a personalized treatment plan."],
-            "follow_up": "Follow up with a doctor as soon as possible.",
-        },
-        "Hindi": {
-            "medications": ["इस निदान के लिए कोई विशिष्ट दवा नहीं मिली।"],
-            "instructions": ["व्यक्तिगत उपचार योजना के लिए कृपया किसी स्वास्थ्य देखभाल पेशेवर से परामर्श लें।"],
-            "follow_up": "यथाशीघ्र डॉक्टर से संपर्क करें।",
-        },
-        "Marathi": {
-            "medications": ["या निदानासाठी कोणतेही विशिष्ट औषध सापडले नाही."],
-            "instructions": ["वैयक्तिकृत उपचार योजनेसाठी कृपया आरोग्यसेवा व्यावसायिकाचा सल्ला घ्या."],
-            "follow_up": "शक्य तितक्या लवकर डॉक्टरांशी संपर्क साधा.",
-        },
-    }
-
     date = datetime.now().strftime("%d/%m/%Y")
     
-    # Find treatment for the primary diagnosis, or use the multilingual fallback
-    treatment_options = meds_map.get(primary_diagnosis, fallback_treatment)
-    treatment = treatment_options.get(language, treatment_options.get("English"))
-
+    # Use AI to generate appropriate medications based on the diagnosis
+    client = Groq(api_key=get_api_key())
+    
+    # Language-specific prompts for medication generation with detailed instructions
+    medication_prompts = {
+        "English": """Based on the following medical diagnosis, provide 2-3 appropriate medications or treatments with specific instructions for each.
+        For each medication, include: medication name, dosage, frequency, duration, and any special instructions.
+        Return in this format:
+        - Medication Name: Dosage instructions (e.g., 500mg tablet), Frequency (e.g., twice daily), Duration (e.g., for 7 days), Special instructions
+        
+        Diagnosis: {diagnosis}
+        
+        Medications with Instructions:""",
+        
+        "Hindi": """निम्नलिखित चिकित्सा निदान के आधार पर, प्रत्येक के लिए विशिष्ट निर्देशों के साथ 2-3 उपयुक्त दवाएं या उपचार प्रदान करें।
+        प्रत्येक दवा के लिए शामिल करें: दवा का नाम, खुराक, आवृत्ति, अवधि और कोई विशेष निर्देश।
+        इस प्रारूप में लौटाएं:
+        - दवा का नाम: खुराक निर्देश (उदा., 500mg गोली), आवृत्ति (उदा., दिन में दो बार), अवधि (उदा., 7 दिनों के लिए), विशेष निर्देश
+        
+        निदान: {diagnosis}
+        
+        निर्देशों के साथ दवाएं:""",
+        
+        "Marathi": """खालील वैद्यकीय निदानावर आधारित, प्रत्येकासाठी विशिष्ट सूचनांसह २-३ योग्य औषधे किंवा उपचार द्या.
+        प्रत्येक औषधासाठी समाविष्ट करा: औषधाचे नाव, खुराक, वारंवारता, कालावधी आणि कोणतीही विशेष सूचना.
+        या स्वरूपात परत करा:
+        - औषधाचे नाव: खुराक सूचना (उदा., 500mg गोळी), वारंवारता (उदा., दिवसातून दोन वेळा), कालावधी (उदा., ७ दिवसांसाठी), विशेष सूचना
+        
+        निदान: {diagnosis}
+        
+        सूचनांसह औषधे:"""
+    }
+    
+    prompt_template = medication_prompts.get(language, medication_prompts["English"])
+    prompt = prompt_template.format(diagnosis=diagnosis[:500])  # Limit diagnosis length
+    
+    try:
+        response = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a medical professional providing medication recommendations."},
+                {"role": "user", "content": prompt}
+            ],
+            model="llama3-8b-8192",
+            max_tokens=150,
+            temperature=0.3
+        )
+        
+        medications_text = response.choices[0].message.content.strip()
+        
+        # Parse the medications from the response
+        medications = []
+        lines = medications_text.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            # Skip empty lines and lines that are just headers
+            if not line or any(phrase in line.lower() for phrase in ["here is", "medications:", "list of", "following"]):
+                continue
+            
+            # Handle different list formats
+            if line.startswith(('-', '•', '*', '1.', '2.', '3.')):
+                # Clean up list items
+                clean_med = line.replace('-', '').replace('•', '').replace('*', '').strip()
+                # Remove numbering
+                if clean_med and clean_med[0].isdigit() and '.' in clean_med:
+                    clean_med = clean_med.split('.', 1)[1].strip()
+                if clean_med and len(clean_med) > 3:
+                    medications.append(clean_med)
+            else:
+                # Handle plain text medication names
+                if len(line) > 3 and not any(word in line.lower() for word in ["medication", "treatment", "prescription"]):
+                    medications.append(line)
+        
+        # If parsing failed, use fallback medications
+        if not medications:
+            fallback_meds = {
+                "English": ["Consult healthcare professional for specific medication"],
+                "Hindi": ["विशिष्ट दवा के लिए स्वास्थ्य देखभाल पेशेवर से परामर्श करें"],
+                "Marathi": ["विशिष्ट औषधासाठी आरोग्यसेवा व्यावसायिकांचा सल्ला घ्या"]
+            }
+            medications = fallback_meds.get(language, fallback_meds["English"])
+            
+    except Exception as e:
+        print(f"Medication generation failed: {str(e)}")
+        fallback_meds = {
+            "English": ["Consult healthcare professional for medication"],
+            "Hindi": ["दवा के लिए स्वास्थ्य देखभाल पेशेवर से परामर्श करें"],
+            "Marathi": ["औषधासाठी आरोग्यसेवा व्यावसायिकांचा सल्ला घ्या"]
+        }
+        medications = fallback_meds.get(language, fallback_meds["English"])
 
     templates = {
         "English": """
@@ -167,11 +204,6 @@ Diagnosis: {diagnosis}
 
 Medications:
 {medications}
-
-Instructions:
-{instructions}
-
-Follow-up: {follow_up}
 
 Doctor: AI Doctor
 """,
@@ -184,11 +216,6 @@ Doctor: AI Doctor
 दवाइयां:
 {medications}
 
-निर्देश:
-{instructions}
-
-फॉलो-अप: {follow_up}
-
 डॉक्टर: AI Doctor
 """,
         "Marathi": """
@@ -200,11 +227,6 @@ Doctor: AI Doctor
 औषधे:
 {medications}
 
-सूचना:
-{instructions}
-
-पुन्हा तपासणी: {follow_up}
-
 डॉक्टर: AI Doctor
 """
     }
@@ -213,10 +235,8 @@ Doctor: AI Doctor
 
     return template.format(
         date=date,
-        diagnosis=diagnosis, # Keep the full original diagnosis for display
-        medications="\n".join(f"- {med}" for med in treatment["medications"]),
-        instructions="\n".join(f"- {inst}" for inst in treatment["instructions"]),
-        follow_up=treatment["follow_up"],
+        diagnosis=diagnosis[:80] + "..." if len(diagnosis) > 80 else diagnosis,  # Show first 80 chars of diagnosis
+        medications="\n".join(f"- {med}" for med in medications),
     )
 
 @lru_cache(maxsize=100)
@@ -289,7 +309,7 @@ def analyze_image_with_query(query, encoded_image, language="English", model="ll
         नुस्खा:
         - विशिष्ट दवाएं या उपचार
         - अनुप्रयोग निर्देश
-        - फॉलो-अप समयरेखा
+        - फॉलो-अप समय
         
         नोट: यह विश्लेषण रोगी के विवरण के आधार पर है। अधिक सटीक निदान के लिए, कृपया एक स्वास्थ्य देखभाल पेशेवर से परामर्श करें।""",
         
@@ -409,7 +429,7 @@ def analyze_image(image_path):
 
 @lru_cache(maxsize=100)
 def analyze_text_query(query, language="English", model="llama3-8b-8192", max_retries=3):
-    """Process text queries with GROQ API with caching"""
+    """Process text queries with GROQ API with caching and focused diagnosis"""
     import logging
     if not query or not isinstance(query, str):
         logging.error("Invalid query parameter for analyze_text_query")
@@ -417,19 +437,42 @@ def analyze_text_query(query, language="English", model="llama3-8b-8192", max_re
         
     client = Groq(api_key=get_api_key())
     
-    # Language-specific prompts
+    # Language-specific prompts with varied response patterns - focused on concise diagnosis only
     language_prompts = {
-        "English": "You are a medical specialist. Analyze the following symptoms and provide a diagnosis in English:",
-        "Hindi": "आप एक चिकित्सा विशेषज्ञ हैं। कृपया उत्तर हिंदी में दें। निम्नलिखित लक्षणों का विश्लेषण करें और हिंदी में निदान प्रदान करें:",
-        "Marathi": "तुम्ही एक वैद्यकीय तज्ज्ञ आहात. कृपया उत्तर मराठीत द्या. खालील लक्षणांचे विश्लेषण करा आणि मराठीमध्ये निदान द्या:"
+        "English": [
+            "You are a medical specialist. Provide a concise diagnosis for these symptoms. Focus on the most likely condition and key symptoms. Keep it brief:",
+            "As a healthcare professional, give a quick medical assessment of these symptoms. Be concise and focus on the primary diagnosis:",
+            "Provide a brief medical diagnosis of these symptoms. Keep it short and focused on the main condition:"
+        ],
+        "Hindi": [
+            "आप एक चिकित्सा विशेषज्ञ हैं। इन लक्षणों का संक्षिप्त निदान प्रदान करें। मुख्य स्थिति और प्रमुख लक्षणों पर ध्यान दें। संक्षिप्त रहें:",
+            "एक स्वास्थ्य देखभाल पेशेवर के रूप में, इन लक्षणों का संक्षिप्त चिकित्सा आकलन दें। संक्षिप्त रहें और प्राथमिक निदान पर ध्यान दें:",
+            "इन लक्षणों का संक्षिप्त चिकित्सा निदान प्रदान करें। संक्षिप्त रहें और मुख्य स्थिति पर ध्यान केंद्रित करें:"
+        ],
+        "Marathi": [
+            "तुम्ही एक वैद्यकीय तज्ज्ञ आहात. या लक्षणांचे संक्षिप्त निदान द्या. मुख्य स्थिती आणि प्रमुख लक्षणांवर लक्ष केंद्रित करा. संक्षिप्त रहा:",
+            "आरोग्यसेवा व्यावसायिक म्हणून, या लक्षणांचे संक्षिप्त वैद्यकीय मूल्यांकन द्या. संक्षिप्त रहा आणि प्राथमिक निदानावर लक्ष केंद्रित करा:",
+            "या लक्षणांचे संक्षिप्त वैद्यकीय निदान द्या. संक्षिप्त रहा आणि मुख्य स्थितीवर लक्ष केंद्रित करा:"
+        ]
     }
     
-    # Get the appropriate prompt for the selected language
-    system_prompt = language_prompts.get(language, language_prompts["English"])
+    # Get random prompt for the selected language to add variability
+    prompts = language_prompts.get(language, language_prompts["English"])
+    system_prompt = random.choice(prompts) if isinstance(prompts, list) else prompts
+    
+    # Add some variability to the query to get different responses
+    query_variations = [
+        query,
+        f"Patient reports: {query}. Please provide medical analysis.",
+        f"Symptoms described: {query}. Need professional diagnosis.",
+        f"Medical consultation request: {query}"
+    ]
+    
+    user_query = random.choice(query_variations)
     
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": query}
+        {"role": "user", "content": user_query}
     ]
 
     last_error = None
@@ -438,7 +481,8 @@ def analyze_text_query(query, language="English", model="llama3-8b-8192", max_re
             response = client.chat.completions.create(
                 messages=messages,
                 model=model,
-                max_tokens=800
+                max_tokens=800,
+                temperature=0.7  # Add some randomness to responses
             )
             
             if not response.choices:
@@ -452,7 +496,16 @@ def analyze_text_query(query, language="English", model="llama3-8b-8192", max_re
             if not content.strip():
                 logging.error("Empty content string from analyze_text_query")
                 return "Error: Empty content from text analysis."
-            return content
+            
+            # Add some post-processing to ensure varied responses
+            diagnosis_variations = [
+                content,
+                f"MEDICAL ANALYSIS:\n{content}",
+                f"DIAGNOSTIC ASSESSMENT:\n{content}",
+                f"CLINICAL EVALUATION:\n{content}"
+            ]
+            
+            return random.choice(diagnosis_variations)
             
         except GroqError as e:
             last_error = e
