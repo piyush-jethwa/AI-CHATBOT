@@ -3,7 +3,7 @@ import tempfile
 import streamlit as st
 
 # Set page config must be the first Streamlit command
-st.set_page_config(page_title="VAIDYA - Medical Diagnosis", layout="wide")
+st.set_page_config(page_title="Vaidya Ai - Healthcare assistant", layout="wide")
 
 from brain_of_the_doctor import (
     encode_image,
@@ -19,6 +19,12 @@ except ImportError as e:
     def transcribe_with_groq(stt_model, audio_filepath, GROQ_API_KEY):
         st.error("Voice transcription not available due to import error")
         return None
+
+# Optional mic recorder for live capture
+try:
+    from streamlit_mic_recorder import mic_recorder  # pip install streamlit-mic-recorder
+except Exception:
+    mic_recorder = None
 
 from gtts import gTTS
 import base64
@@ -55,9 +61,70 @@ LANGUAGE_CODES = {
     "Hindi": "hi",
     "Marathi": "mr"
 }
+
+TRANSLATIONS = {
+    "English": {
+        "title": "🩺 Vaidya Ai - Healthcare assistant",
+        "subtitle": "Professional medical diagnosis powered by AI",
+        "input": "Input",
+        "voice_tab": "🎤 Voice Input",
+        "text_tab": "✍️ Text Input",
+        "describe_symptoms": "Describe your symptoms",
+        "earlier_symptoms": "Earlier symptoms / what problem are you facing?",
+        "days_suffering": "Days suffering",
+        "days_help": "From how many days are you suffering?",
+        "upload_image": "Upload Medical Image (Optional)",
+        "doctor_panel": "Your Doctor",
+        "get_diagnosis": "🔍 Get Diagnosis",
+        "language": "Language"
+    },
+    "Hindi": {
+        "title": "🩺 वैद्य AI - एक हेल्थकेयर असिस्टेंट",
+        "subtitle": "एआई द्वारा संचालित पेशेवर चिकित्सा निदान",
+        "input": "इनपुट",
+        "voice_tab": "🎤 वॉइस इनपुट",
+        "text_tab": "✍️ टेक्स्ट इनपुट",
+        "describe_symptoms": "अपने लक्षणों का वर्णन करें",
+        "earlier_symptoms": "पहले के लक्षण / आप किस प्रकार की समस्या का सामना कर रहे हैं?",
+        "days_suffering": "कितने दिनों से",
+        "days_help": "आप कितने दिनों से पीड़ित हैं?",
+        "upload_image": "मेडिकल इमेज अपलोड करें (वैकल्पिक)",
+        "doctor_panel": "आपके डॉक्टर",
+        "get_diagnosis": "🔍 निदान प्राप्त करें",
+        "language": "भाषा"
+    },
+    "Marathi": {
+        "title": "🩺 वैद्य AI - आरोग्य सहाय्यक",
+        "subtitle": "एआय द्वारा समर्थित व्यावसायिक वैद्यकीय निदान",
+        "input": "इनपुट",
+        "voice_tab": "🎤 आवाज इनपुट",
+        "text_tab": "✍️ मजकूर इनपुट",
+        "describe_symptoms": "आपली लक्षणे वर्णन करा",
+        "earlier_symptoms": "पूर्वीची लक्षणे / तुम्ही कोणत्या प्रकारची समस्या अनुभवत आहात?",
+        "days_suffering": "किती दिवसांपासून",
+        "days_help": "आपण किती दिवसांपासून त्रस्त आहात?",
+        "upload_image": "वैद्यकीय प्रतिमा अपलोड करा (ऐच्छिक)",
+        "doctor_panel": "आपले डॉक्टर",
+        "get_diagnosis": "🔍 निदान मिळवा",
+        "language": "भाषा"
+    }
+}
+
+def tr(key: str) -> str:
+    lang = st.session_state.get("language", "English")
+    return TRANSLATIONS.get(lang, TRANSLATIONS["English"]).get(key, key)
+
+# Top bar with language selector (top-right)
+header_left, header_spacer, header_right = st.columns([8, 2, 2], gap="small")
+with header_left:
+    st.markdown(f"<h1 class='title-nowrap'>{tr('title')}</h1>", unsafe_allow_html=True)
+    st.markdown(f"*{tr('subtitle')}*")
+with header_right:
+    st.selectbox(tr("language"), list(LANGUAGE_CODES.keys()), key="language")
+
 st.markdown("""
 <style>
-    .block-container {padding-top: 1rem; padding-bottom: 1rem;}
+    .block-container {padding-top: 0.5rem; padding-bottom: 1rem;}
     .stButton>button {width: 100%;}
     .stTextArea textarea {font-size: 1rem;}
     .diagnosis-card, .prescription-card {
@@ -69,29 +136,62 @@ st.markdown("""
         border: 1px solid #444;
     }
     .section-title {color: #ff9800; font-weight: bold; margin-bottom: 0.5rem;}
+    .title-nowrap {white-space: nowrap; font-size: clamp(1.5rem, 2.6vw + 0.5rem, 3rem);}
 </style>
 """, unsafe_allow_html=True)
-
-st.markdown("# 🩺 AI Doctor - Medical Diagnosis System")
-st.markdown("*Professional medical diagnosis powered by AI*")
 
 col1, col2 = st.columns([2, 1], gap="large")
 
 with col1:
-    st.markdown("### Input")
-    tab1, tab2 = st.tabs(["🎤 Voice Input", "✍️ Text Input"])
+    st.markdown(f"### {tr('input')}")
+    tab1, tab2 = st.tabs([tr("voice_tab"), tr("text_tab")])
     with tab1:
+        st.caption("Record live audio or upload a file")
+        # Live mic recorder
+        if mic_recorder is not None:
+            rec = mic_recorder(start_prompt="🎙️ Start recording", stop_prompt="⏹️ Stop recording", just_once=True, use_container_width=True)
+            if rec:
+                # Some versions return dict with 'bytes'; fallback to raw bytes
+                audio_bytes = rec.get('bytes') if isinstance(rec, dict) else rec
+                if isinstance(audio_bytes, (bytes, bytearray)):
+                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
+                    tmp.write(audio_bytes)
+                    tmp.close()
+                    st.success("Recorded audio captured. Transcribing...")
+                    text_from_audio = transcribe_with_groq(
+                        stt_model="whisper-large-v3",
+                        audio_filepath=tmp.name,
+                        GROQ_API_KEY=GROQ_API_KEY
+                    )
+                    os.remove(tmp.name)
+                    if text_from_audio:
+                        st.session_state["prefill_text"] = text_from_audio
+                        st.success(f"✅ Transcribed: {text_from_audio[:100]}...")
+                else:
+                    st.warning("Recorder returned unexpected format.")
+        else:
+            st.info("Install mic recorder for live capture: pip install streamlit-mic-recorder")
+
         audio_input = st.file_uploader("Record your symptoms (upload .wav/.mp3)", type=["wav", "mp3"])
         if audio_input is None:
             st.info("Please upload an audio file or use text input")
+        # Days suffering in Voice tab (synced to session state)
+        st.number_input(tr("days_suffering"), min_value=0, step=1, help=tr("days_help"), key="duration_days_voice", value=st.session_state.get("duration_days_general", 0))
+        if "duration_days_voice" in st.session_state:
+            st.session_state["duration_days_general"] = st.session_state.get("duration_days_voice", 0)
     with tab2:
-        text_input = st.text_area("Describe your symptoms", placeholder="Type your symptoms here...", height=80)
-    image_input = st.file_uploader("Upload Medical Image (Optional)", type=["jpg", "jpeg", "png", "webp"])
-    response_language = st.selectbox("Response Language", list(LANGUAGE_CODES.keys()), index=0)
-    submit_btn = st.button("🔍 Get Diagnosis", use_container_width=True)
+        c1, c2 = st.columns([3, 1])
+        with c1:
+            text_input = st.text_area(tr("describe_symptoms"), value=st.session_state.get("prefill_text", ""), placeholder="Type your symptoms here...", height=120)
+        with c2:
+            st.number_input(tr("days_suffering"), min_value=0, step=1, help=tr("days_help"), key="duration_days_general", value=st.session_state.get("duration_days_general", 0))
+    earlier_symptoms = st.text_area(tr("earlier_symptoms"), placeholder="List early signs or describe the specific problem type...", height=100)
+    image_input = st.file_uploader(tr("upload_image"), type=["jpg", "jpeg", "png", "webp"])
+    response_language = st.session_state.get("language", "English")
+    submit_btn = st.button(tr("get_diagnosis"), use_container_width=True)
 
 with col2:
-    st.markdown("### Your Doctor")
+    st.markdown(f"### {tr('doctor_panel')}")
     st.image("portrait-3d-female-doctor[1].jpg", caption="Your Doctor", use_container_width=True)
 
 # Output section
@@ -132,14 +232,35 @@ if submit_btn:
                 prescription = None
                 audio_filepath = None
                 language_code = LANGUAGE_CODES.get(response_language, "en")
+                duration_val = st.session_state.get("duration_days_general", 0)
                 
                 if text_input and not image_base64:
                     st.info("🧠 Analyzing text input...")
-                    diagnosis = analyze_text_query(text_input, response_language)
+                    enriched_text = (
+                        f"Patient report:\n"
+                        f"- Symptoms: {text_input}\n"
+                        f"- Earlier symptoms/problem: {earlier_symptoms}\n"
+                        f"- Duration (days): {duration_val}\n\n"
+                        f"Task: Provide a detailed medical assessment including:\n"
+                        f"1) Differential diagnosis with reasoning\n"
+                        f"2) Most likely diagnosis\n"
+                        f"3) Red flags and when to seek urgent care\n"
+                        f"4) Home care advice\n"
+                        f"5) Prescription-style suggestions (OTC where appropriate)."
+                    )
+                    diagnosis = analyze_text_query(enriched_text, response_language)
                     prescription = generate_prescription(diagnosis, response_language)
                 elif image_base64:
                     st.info("🧠 Analyzing image...")
-                    diagnosis = analyze_image_with_query(text_input or "Analyze this skin condition", image_base64, response_language)
+                    image_prompt = (
+                        f"Analyze this image with the following patient context.\n\n"
+                        f"Patient report:\n"
+                        f"- Symptoms: {text_input or 'Not provided'}\n"
+                        f"- Earlier symptoms/problem: {earlier_symptoms}\n"
+                        f"- Duration (days): {duration_val}\n\n"
+                        f"Task: Provide a detailed medical assessment including differential diagnosis, likely diagnosis, red flags, home care, and prescription-style suggestions."
+                    )
+                    diagnosis = analyze_image_with_query(image_prompt, image_base64, response_language)
                     prescription = generate_prescription(diagnosis, response_language)
                 
                 # Audio diagnosis and prescription
