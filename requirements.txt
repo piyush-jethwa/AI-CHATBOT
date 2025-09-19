@@ -8,5 +8,4 @@ Pillow==10.0.1
 requests==2.31.0
 pandas
 streamlit-webrtc
-streamlit-mic-recorder
 av
