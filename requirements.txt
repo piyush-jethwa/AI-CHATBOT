@@ -60,5 +60,5 @@ python-dotenv
 SpeechRecognition==3.10.1
 soundfile==0.12.1
 pandas
-streamlit-mic-recorder
+streamlit-mic-recorder==0.0.8
 streamlit-audiorecorder
