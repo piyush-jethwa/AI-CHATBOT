@@ -59,3 +59,14 @@ urllib3==2.3.0
 uvicorn==0.34.0
 websockets==14.1
 python-dotenv
+streamlit==1.32.0
+groq==0.3.0
+python-dotenv==1.0.0
+gtts==2.3.2
+opencv-python==4.9.0.80
+numpy
+Pillow==10.0.1
+requests==2.31.0
+pandas
+streamlit-mic-recorder
+
