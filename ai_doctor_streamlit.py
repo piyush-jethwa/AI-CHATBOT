@@ -22,9 +22,9 @@ except ImportError as e:
 
 # Optional mic recorder for live capture
 try:
-    from streamlit_mic_recorder import mic_recorder  # pip install streamlit-mic-recorder
+    from streamlit_webrtc import webrtc_streamer, RTCConfiguration
 except Exception:
-    mic_recorder = None
+    webrtc_streamer = None
 
 from gtts import gTTS
 import base64
@@ -148,11 +148,20 @@ with col1:
     with tab1:
         st.caption("Record live audio or upload a file")
         # Live mic recorder
-        if mic_recorder is not None:
-            rec = mic_recorder(start_prompt="🎙️ Start recording", stop_prompt="⏹️ Stop recording", just_once=True, use_container_width=True)
-            if rec:
-                # Some versions return dict with 'bytes'; fallback to raw bytes
-                audio_bytes = rec.get('bytes') if isinstance(rec, dict) else rec
+        if webrtc_streamer is not None:
+            webrtc_config = RTCConfiguration(
+                {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+            )
+            webrtc_streamer(
+                key="audio-recorder",
+                audio=True,
+                video=False,
+                rtc_configuration=webrtc_config,
+                media_stream_constraints={"video": False, "audio": True},
+                async_processing=True,
+            )
+            if st.session_state.get("audio_data"):
+                audio_bytes = st.session_state["audio_data"]
                 if isinstance(audio_bytes, (bytes, bytearray)):
                     tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
                     tmp.write(audio_bytes)
