@@ -20,14 +20,11 @@ except ImportError as e:
         st.error("Voice transcription not available due to import error")
         return None
 
-# WebRTC for audio recording
+# Optional mic recorder for live capture
 try:
-    from streamlit_webrtc import webrtc_streamer, RTCConfiguration
-    WEBRTC_AVAILABLE = True
-except Exception as e:
-    st.warning(f'WebRTC not available: {e}')
-    webrtc_streamer = None
-    WEBRTC_AVAILABLE = False
+    from streamlit_mic_recorder import mic_recorder  # pip install streamlit-mic-recorder
+except Exception:
+    mic_recorder = None
 
 from gtts import gTTS
 import base64
@@ -151,8 +148,8 @@ with col1:
     with tab1:
         st.caption("Record live audio or upload a file")
         # Live mic recorder
-        if webrtc_streamer is not None:
-            rec = webrtc_streamer(start_prompt="🎙️ Start recording", stop_prompt="⏹️ Stop recording", just_once=True, use_container_width=True)
+        if mic_recorder is not None:
+            rec = mic_recorder(start_prompt="🎙️ Start recording", stop_prompt="⏹️ Stop recording", just_once=True, use_container_width=True)
             if rec:
                 # Some versions return dict with 'bytes'; fallback to raw bytes
                 audio_bytes = rec.get('bytes') if isinstance(rec, dict) else rec
