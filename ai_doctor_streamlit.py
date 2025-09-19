@@ -192,7 +192,7 @@ with col1:
 
 with col2:
     st.markdown(f"### {tr('doctor_panel')}")
-    st.image("portrait-3d-female-doctor[1].jpg", caption="Your Doctor", use_container_width=True)
+    st.image("portrait-3d-female-doctor[1].jpg", caption="Your Doctor", width=300)
 
 # Output section
 if submit_btn:
