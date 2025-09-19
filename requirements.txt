@@ -59,4 +59,5 @@ websockets==14.1; python_version >= '3.9'
 python-dotenv
 SpeechRecognition==3.10.1
 soundfile==0.12.1
+pandas
 streamlit-mic-recorder
