@@ -1,154 +1,93 @@
-# Project Setup Guide
+# AI Doctor - Medical Diagnosis System
 
-This guide provides step-by-step instructions to set up your project environment, including the installation of FFmpeg and PortAudio across macOS, Linux, and Windows, as well as setting up a Python virtual environment using Pipenv, pip, or conda.
+A comprehensive medical diagnosis system powered by AI that provides medical analysis, diagnosis, and prescription generation in multiple languages (English, Hindi, Marathi). The system is based on medical knowledge from Medical_book1.pdf.
 
-## Table of Contents
+## Features
 
-1. [Installing FFmpeg and PortAudio](#installing-ffmpeg-and-portaudio)
-   - [macOS](#macos)
-   - [Linux](#linux)
-   - [Windows](#windows)
-2. [Setting Up a Python Virtual Environment](#setting-up-a-python-virtual-environment)
-   - [Using Pipenv](#using-pipenv)
-   - [Using pip and venv](#using-pip-and-venv)
-   - [Using Conda](#using-conda)
-3. [Running the application](#project-phases-and-python-commands)
+- **Multi-language Support**: Diagnosis and prescriptions in English, Hindi, and Marathi
+- **Voice Input**: Upload audio files for symptom description
+- **Image Analysis**: Upload medical images for analysis (skin conditions, etc.)
+- **Text-to-Speech**: Audio output of diagnosis and prescriptions
+- **Detailed Prescriptions**: Medication instructions with dosage, frequency, and duration
 
-## Installing FFmpeg and PortAudio
+## Deployment on Streamlit
 
-### macOS
+### Prerequisites
+- Streamlit account
+- GROQ API key (get from https://console.groq.com/)
 
-1. **Install Homebrew** (if not already installed):
+### Steps to Deploy
 
+1. **Fork/Upload to GitHub**
+   - Upload your project to a GitHub repository
+
+2. **Deploy to Streamlit Cloud**
+   - Go to https://share.streamlit.io/
+   - Click "New app"
+   - Connect your GitHub account
+   - Select your repository
+   - Set the main file path to `ai_doctor_streamlit.py`
+
+3. **Set Environment Variables**
+   - In Streamlit deployment settings, add environment variable:
+     - `GROQ_API_KEY`: Your GROQ API key (starts with `gsk_`)
+
+4. **Deploy**
+   - Click "Deploy" and wait for the app to build
+
+### Local Development
+
+1. **Install dependencies:**
    ```bash
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   pip install -r requirements.txt
    ```
 
-2. **Install FFmpeg and PortAudio:**
-
+2. **Set environment variable:**
    ```bash
-   brew install ffmpeg portaudio
+   export GROQ_API_KEY="your_groq_api_key_here"
+   # or on Windows:
+   set GROQ_API_KEY="your_groq_api_key_here"
    ```
 
+3. **Run locally:**
+   ```bash
+   streamlit run ai_doctor_streamlit.py
+   ```
 
-### Linux
-For Debian-based distributions (e.g., Ubuntu):
-
-1. **Update the package list**
-
-```
-sudo apt update
-```
-
-2. **Install FFmpeg and PortAudio:**
-```
-sudo apt install ffmpeg portaudio19-dev
-```
-
-### Windows
-
-#### Download FFmpeg:
-1. Visit the official FFmpeg download page: [FFmpeg Downloads](https://ffmpeg.org/download.html)
-2. Navigate to the Windows builds section and download the latest static build.
-
-#### Extract and Set Up FFmpeg:
-1. Extract the downloaded ZIP file to a folder (e.g., `C:\ffmpeg`).
-2. Add the `bin` directory to your system's PATH:
-   - Search for "Environment Variables" in the Start menu.
-   - Click on "Edit the system environment variables."
-   - In the System Properties window, click on "Environment Variables."
-   - Under "System variables," select the "Path" variable and click "Edit."
-   - Click "New" and add the path to the `bin` directory (e.g., `C:\ffmpeg\bin`).
-   - Click "OK" to apply the changes.
-
-#### Install PortAudio:
-1. Download the PortAudio binaries from the official website: [PortAudio Downloads](http://www.portaudio.com/download.html)
-2. Follow the installation instructions provided on the website.
-
----
-
-## Setting Up a Python Virtual Environment
-
-### Using Pipenv
-1. **Install Pipenv (if not already installed):**  
-```
-pip install pipenv
-```
-
-2. **Install Dependencies with Pipenv:** 
+## File Structure
 
 ```
-pipenv install
+├── ai_doctor_streamlit.py    # Main Streamlit application
+├── brain_of_the_doctor.py    # Core AI logic and diagnosis functions
+├── requirements.txt          # Python dependencies
+├── README.md                # This file
+└── .streamlit/
+    └── secrets.toml         # Local development secrets (optional)
 ```
 
-3. **Activate the Virtual Environment:** 
+## Usage
 
-```
-pipenv shell
-```
+1. **Input Methods:**
+   - Text: Type symptoms in the text area
+   - Voice: Upload audio file (.wav/.mp3) with symptom description
+   - Image: Upload medical images for analysis
 
----
+2. **Language Selection:**
+   - Choose from English, Hindi, or Marathi for responses
 
-### Using `pip` and `venv`
-#### Create a Virtual Environment:
-```
-python -m venv venv
-```
+3. **Get Diagnosis:**
+   - Click "Get Diagnosis" to receive AI-powered medical analysis
 
-#### Activate the Virtual Environment:
-**macOS/Linux:**
-```
-source venv/bin/activate
-```
+4. **Prescription:**
+   - View detailed medication instructions with dosage information
 
-**Windows:**
-```
-venv\Scripts\activate
-```
+## Important Notes
 
-#### Install Dependencies:
-```
-pip install -r requirements.txt
-```
+- This is an AI-powered tool and should not replace professional medical advice
+- Always consult healthcare professionals for serious medical conditions
+- The system provides guidance based on symptom descriptions
 
----
+## API Requirements
 
-### Using Conda
-#### Create a Conda Environment:
-```
-conda create --name myenv python=3.11
-```
-
-#### Activate the Conda Environment:
-```
-conda activate myenv
-```
-
-#### Install Dependencies:
-```
-pip install -r requirements.txt
-```
-
-
-# Project Phases and Python Commands
-
-## Phase 1: Brain of the doctor
-```
-python brain_of_the_doctor.py
-```
-
-## Phase 2: Voice of the patient
-```
-python voice_of_the_patient.py
-```
-
-## Phase 3: Voice of the doctor
-```
-python voice_of_the_doctor.py
-```
-
-## Phase 4: Setup Gradio UI
-```
-python gradio_app.py
-```
-
+- GROQ API key is required for AI functionality
+- The app uses the Llama 3 model for medical analysis
