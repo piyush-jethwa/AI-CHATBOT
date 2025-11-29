@@ -417,16 +417,16 @@ if not GROQ_API_KEY:
     if 'streamlit' not in sys.modules:
         sys.exit(1)
 else:
-    print(f"🔑 API Key Status: Found (Length: {len(GROQ_API_KEY)} characters)")
+    print(f"[INFO] API Key Status: Found (Length: {len(GROQ_API_KEY)} characters)")
     if GROQ_API_KEY.startswith("gsk_"):
-        print("✅ API Key format looks correct (starts with 'gsk_')")
+        print("[INFO] API Key format looks correct (starts with 'gsk_')")
         # Test the API key
         if test_api_key(GROQ_API_KEY):
-            print("✅ API Key is valid and working!")
+            print("[INFO] API Key is valid and working!")
         else:
-            print("❌ API Key test failed - key may be invalid or expired")
+            print("[WARN] API Key test failed - key may be invalid or expired")
     else:
-        print("⚠️ API Key format may be incorrect (should start with 'gsk_')")
+        print("[WARN] API Key format may be incorrect (should start with 'gsk_')")
 
 def analyze_image(image_path):
     """Analyze image using computer vision"""
