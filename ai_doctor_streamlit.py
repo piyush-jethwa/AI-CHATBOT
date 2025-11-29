@@ -20,12 +20,6 @@ except ImportError as e:
         st.error("Voice transcription not available due to import error")
         return None
 
-# Optional mic recorder for live capture
-try:
-    from streamlit_mic_recorder import mic_recorder  # pip install streamlit-mic-recorder
-except Exception:
-    mic_recorder = None
-
 from gtts import gTTS
 import base64
 import io
@@ -146,32 +140,7 @@ with col1:
     st.markdown(f"### {tr('input')}")
     tab1, tab2 = st.tabs([tr("voice_tab"), tr("text_tab")])
     with tab1:
-        st.caption("Record live audio or upload a file")
-        # Live mic recorder
-        if mic_recorder is not None:
-            rec = mic_recorder(start_prompt="🎙️ Start recording", stop_prompt="⏹️ Stop recording", just_once=True, width="stretch")
-            if rec:
-                # Some versions return dict with 'bytes'; fallback to raw bytes
-                audio_bytes = rec.get('bytes') if isinstance(rec, dict) else rec
-                if isinstance(audio_bytes, (bytes, bytearray)):
-                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
-                    tmp.write(audio_bytes)
-                    tmp.close()
-                    st.success("Recorded audio captured. Transcribing...")
-                    text_from_audio = transcribe_with_groq(
-                        stt_model="whisper-large-v3",
-                        audio_filepath=tmp.name,
-                        GROQ_API_KEY=GROQ_API_KEY
-                    )
-                    os.remove(tmp.name)
-                    if text_from_audio:
-                        st.session_state["prefill_text"] = text_from_audio
-                        st.success(f"✅ Transcribed: {text_from_audio[:100]}...")
-                else:
-                    st.warning("Recorder returned unexpected format.")
-        else:
-            st.info("Install mic recorder for live capture: pip install streamlit-mic-recorder")
-
+        st.caption("Upload an audio file for transcription")
         audio_input = st.file_uploader("Record your symptoms (upload .wav/.mp3)", type=["wav", "mp3"])
         if audio_input is None:
             st.info("Please upload an audio file or use text input")
