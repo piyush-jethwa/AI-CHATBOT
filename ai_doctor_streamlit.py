@@ -21,10 +21,10 @@ except ImportError as e:
         return None
 
 # Optional mic recorder for live capture
-try:
-    from streamlit_mic_recorder import mic_recorder  # pip install streamlit-mic-recorder
-except Exception:
-    mic_recorder = None
+# try:
+#     from streamlit_mic_recorder import mic_recorder  # pip install streamlit-mic-recorder
+# except Exception:
+#     mic_recorder = None
 
 from gtts import gTTS
 import base64
