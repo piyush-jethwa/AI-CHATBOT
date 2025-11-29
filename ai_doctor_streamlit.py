@@ -149,7 +149,7 @@ with col1:
         st.caption("Record live audio or upload a file")
         # Live mic recorder
         if mic_recorder is not None:
-            rec = mic_recorder(start_prompt="🎙️ Start recording", stop_prompt="⏹️ Stop recording", just_once=True, use_container_width=True)
+            rec = mic_recorder(start_prompt="🎙️ Start recording", stop_prompt="⏹️ Stop recording", just_once=True, width="stretch")
             if rec:
                 # Some versions return dict with 'bytes'; fallback to raw bytes
                 audio_bytes = rec.get('bytes') if isinstance(rec, dict) else rec
@@ -188,11 +188,11 @@ with col1:
     earlier_symptoms = st.text_area(tr("earlier_symptoms"), placeholder="List early signs or describe the specific problem type...", height=100)
     image_input = st.file_uploader(tr("upload_image"), type=["jpg", "jpeg", "png", "webp"])
     response_language = st.session_state.get("language", "English")
-    submit_btn = st.button(tr("get_diagnosis"), use_container_width=True)
+    submit_btn = st.button(tr("get_diagnosis"), width="stretch")
 
 with col2:
     st.markdown(f"### {tr('doctor_panel')}")
-    st.image("portrait-3d-female-doctor[1].jpg", caption="Your Doctor", use_container_width=True)
+    st.image("portrait-3d-female-doctor[1].jpg", caption="Your Doctor", width="stretch")
 
 # Output section
 if submit_btn:
